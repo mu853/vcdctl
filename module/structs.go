@@ -1,7 +1,7 @@
 package module
 
 type OrgList struct {
-	Orgs []Org `xml:"Org"`
+	Org []Org `xml:"Org"`
 }
 
 type Org struct {
@@ -11,7 +11,7 @@ type Org struct {
 }
 
 type OrgVdcList struct {
-	OrgVdcs []OrgVdc `xml:"AdminVdcRecord"`
+	OrgVdc []OrgVdc `xml:"AdminVdcRecord"`
 }
 
 type OrgVdc struct {
@@ -29,7 +29,7 @@ type OrgVdc struct {
 }
 
 type VAppList struct {
-	VApps []VApp `xml:"AdminVAppRecord"`
+	VApp []VApp `xml:"AdminVAppRecord"`
 }
 
 type VApp struct {
@@ -50,6 +50,12 @@ type OrgVdcNetworkList struct {
 	OrgVdcNetworks []OrgVdcNetwork `xml:"OrgVdcNetworkRecord"`
 }
 
+type Element struct {
+	Href string `xml:"href,attr"`
+	Id   string `xml:"id,attr"`
+	Name string `xml:"name,attr"`
+}
+
 type OrgVdcNetwork struct {
 	Name               string `xml:"name,attr"`
 	Href               string `xml:"href,attr"`
@@ -65,4 +71,64 @@ type OrgVdcNetwork struct {
 	VdcName            string `xml:"vdcName,attr"`
 	IsShared           string `xml:"isShared,attr"`
 	IsIpScopeInherited string `xml:"isIpScopeInherited,attr"`
+	FenceMode          string
+}
+
+type NetworkConfigSection struct {
+	NetworkConfig []Network `xml:"NetworkConfig"`
+}
+
+type Network struct {
+	Name          string               `xml:"networkName,attr"`
+	Configuration NetworkConfiguration `xml:"Configuration"`
+}
+
+type NetworkConfiguration struct {
+	IpScopes      IpScopeList `xml:"IpScopes"`
+	ParentNetwork Element     `xml:"ParentNetwork,omitempty"`
+	FenceMode     string      `xml:"FenceMode"`
+}
+
+type IpScopeList struct {
+	IpScope []IpScope `xml:"IpScope"`
+}
+
+type IpScope struct {
+	IsInherited        string `xml:"IsInherited"`
+	Gateway            string `xml:"Gateway"`
+	Netmask            string `xml:"Netmask"`
+	SubnetPrefixLength string `xml:"SubnetPrefixLength"`
+	IsEnabled          string `xml:"IsEnabled"`
+}
+
+type VAppDetails struct {
+	VMs VmList `xml:"Children"`
+}
+
+type VmList struct {
+	VM []VM `xml:"Vm"`
+}
+
+type VM struct {
+	Name                     string                   `xml:"name,attr"`
+	Urn                      string                   `xml:"id,attr"`
+	Href                     string                   `xml:"href,attr"`
+	NetworkConnectionSection NetworkConnectionSection `xml:"NetworkConnectionSection"`
+}
+
+type NetworkConnectionSection struct {
+	PrimaryNetworkConnectionIndex int                 `xml:"PrimaryNetworkConnectionIndex"`
+	NetworkConnection             []NetworkConnection `xml:"NetworkConnection"`
+}
+
+type NetworkConnection struct {
+	Name                             string `xml:"network,attr"`
+	NetworkConnectionIndex           int    `xml:"NetworkConnectionIndex"`
+	IpAddress                        string `xml:"IpAddress"`
+	IpType                           string `xml:"IpType"`
+	IsConnected                      string `xml:"IsConnected"`
+	MACAddress                       string `xml:"MACAddress"`
+	IpAddressAllocationMode          string `xml:"IpAddressAllocationMode"`
+	SecondaryIpAddressAllocationMode string `xml:"SecondaryIpAddressAllocationMode"`
+	NetworkAdapterType               string `xml:"NetworkAdapterType"`
 }
