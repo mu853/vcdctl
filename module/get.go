@@ -14,6 +14,9 @@ func NewCmdGet() *cobra.Command {
 		Use:   "get",
 		Short: "get resources or exec get api",
 		Args:  cobra.MaximumNArgs(1),
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return client.Login()
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) == 0 {
 				return
@@ -112,6 +115,7 @@ func NewCmdGetVdcNetwork() *cobra.Command {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
+			client.Login()
 			orgVdcs := GetOrgVdcs()
 			vdcNames := []string{}
 			for _, vdc := range orgVdcs {
@@ -152,6 +156,7 @@ func NewCmdGetVAppNetwork() *cobra.Command {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
+			client.Login()
 			vapps := GetVApps()
 			vappNames := []string{}
 			for _, vapp := range vapps {
@@ -198,6 +203,7 @@ func NewCmdGetVAppVm() *cobra.Command {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
+			client.Login()
 			vapps := GetVApps()
 			vappNames := []string{}
 			for _, vapp := range vapps {
@@ -232,6 +238,7 @@ func NewCmdGetVAppVmNetwork() *cobra.Command {
 			if len(args) != 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
+			client.Login()
 			vapps := GetVApps()
 			vappNames := []string{}
 			for _, vapp := range vapps {

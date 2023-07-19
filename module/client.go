@@ -32,7 +32,6 @@ func NewVcdClient(site Site) *VcdClient {
 	}
 	vcdClient := &VcdClient{token: "", httpClient: httpClient}
 	vcdClient.site = site
-	vcdClient.Login()
 	return vcdClient
 }
 
