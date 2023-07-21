@@ -1,6 +1,7 @@
 package module
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -21,4 +22,9 @@ func LastOne(str string, spliter string) string {
 		return tmp[len(tmp)-1]
 	}
 	return ""
+}
+
+func Fatal(v ...any) {
+	fmt.Printf("error: %v\n", v...)
+	os.Exit(1)
 }

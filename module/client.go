@@ -4,10 +4,36 @@ import (
 	"bytes"
 	"crypto/tls"
 	"io"
-	"log"
 	"net/http"
 	"time"
 )
+
+func initClient() {
+	initConfig()
+
+	site, err := config.GetCurrentSite()
+	if err != nil {
+		Fatal(err)
+	}
+	client = *newVcdClient(site)
+
+	if err := client.Login(); err != nil {
+		Fatal(err)
+	}
+}
+
+func newVcdClient(site Site) *VcdClient {
+	transportConfig := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	httpClient := &http.Client{
+		Transport: transportConfig,
+		Timeout:   time.Duration(30) * time.Second,
+	}
+	vcdClient := &VcdClient{token: "", httpClient: httpClient}
+	vcdClient.site = site
+	return vcdClient
+}
 
 type VcdClient struct {
 	token      string
@@ -22,26 +48,13 @@ type Response struct {
 	Error  error
 }
 
-func NewVcdClient(site Site) *VcdClient {
-	transportConfig := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	httpClient := &http.Client{
-		Transport: transportConfig,
-		Timeout:   time.Duration(30) * time.Second,
-	}
-	vcdClient := &VcdClient{token: "", httpClient: httpClient}
-	vcdClient.site = site
-	return vcdClient
-}
-
 func (c *VcdClient) Login() error {
 	header := map[string]string{"Authorization": "Basic " + c.site.GetCredential()}
 	res := c.Request("POST", "/cloudapi/1.0.0/sessions/provider", header, nil)
 	if token, ok := res.Header["X-Vmware-Vcloud-Access-Token"]; ok {
 		c.token = token[0]
 	} else {
-		log.Fatal(res.Header, res.Body)
+		Fatal(res.Header, res.Body)
 	}
 	return nil
 }
@@ -50,7 +63,7 @@ func (c *VcdClient) Request(method string, path string, header map[string]string
 	// Make request
 	req, err := http.NewRequest(method, c.site.Endpoint+path, bytes.NewBuffer(req_data))
 	if err != nil {
-		log.Fatal(err)
+		Fatal(err)
 	}
 
 	// Add headers
@@ -65,11 +78,11 @@ func (c *VcdClient) Request(method string, path string, header map[string]string
 	// Get response
 	res, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Fatal()
+		Fatal()
 	}
 	res_body, err := io.ReadAll(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		Fatal(err)
 	}
 	return &Response{res, res.Header, res_body, nil}
 }

@@ -1,17 +1,13 @@
 package module
 
 import (
-	"encoding/json"
-	"log"
-	"os"
-	"runtime"
-
 	"github.com/spf13/cobra"
 )
 
 var (
-	client VcdClient
-	config Config
+	client         VcdClient
+	config         Config
+	configFilePath string
 )
 
 func GetCmdRoot() *cobra.Command {
@@ -23,29 +19,10 @@ func GetCmdRoot() *cobra.Command {
 	cmd.AddCommand(
 		NewCmdGet(),
 		NewCmdPost(),
+		NewCmdConfig(),
+		NewCmdApi(),
 	)
-
-	// Get config file
-	homedir := os.Getenv("HOME")
-	if homedir == "" && runtime.GOOS == "windows" {
-		homedir = os.Getenv("USERPROFILE")
-	}
-	var configfile string
-	cmd.PersistentFlags().StringVarP(&configfile, "config", "c", homedir+"/.config/vcdctl.json", "path to vcdctl config file")
-
-	// Get site
-	file, err := os.ReadFile(configfile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	json.Unmarshal(file, &config)
-	site, err := config.GetCurrentSite()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Get vcd client
-	client = *NewVcdClient(site)
+	cmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", defaultConfigFilePath(), "path to vcdctl config file")
 
 	return cmd
 }

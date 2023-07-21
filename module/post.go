@@ -16,8 +16,8 @@ func NewCmdPost() *cobra.Command {
 		Use:   "post",
 		Short: "exec post api",
 		Args:  cobra.ExactArgs(1),
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return client.Login()
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			initClient()
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			api := args[0]
