@@ -19,6 +19,7 @@ func GetCmdRoot() *cobra.Command {
 	cmd.AddCommand(
 		NewCmdGet(),
 		NewCmdPost(),
+		NewCmdPut(),
 		NewCmdConfig(),
 		NewCmdApi(),
 	)
