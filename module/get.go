@@ -107,24 +107,25 @@ func NewCmdGetOrgVdcNetwork() *cobra.Command {
 			return vdcNames, cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			vdcId := GetVdcId(args[0])
-			if vdcId == "" {
-				Fatal("OrgVcd \"" + args[0] + "\" not found")
+			vcdName := args[0]
+			orgVdc, err := GetVdc(vcdName)
+			if err != nil {
+				Fatal(err)
 			}
 			var data [][]string
-			for _, nw := range GetOrgVdcNetwork(vdcId) {
+			for _, nw := range GetOrgVdcNetwork(orgVdc.Id) {
+				ipScope := nw.Configuration.IpScopes.IpScope[0]
 				data = append(data, []string{
 					nw.Name,
 					nw.Id,
-					nw.OrgName,
-					nw.VdcName,
-					nw.DefaultGateway + "/" + nw.SubnetPrefixLength,
-					nw.Dns1,
-					nw.Dns2,
-					nw.DnsSuffix,
-					nw.FenceMode,
-					nw.IsShared,
-					nw.IsIpScopeInherited})
+					orgVdc.OrgName,
+					vcdName,
+					ipScope.Gateway + "/" + ipScope.SubnetPrefixLength,
+					ipScope.Dns1,
+					ipScope.Dns2,
+					ipScope.DnsSuffix,
+					nw.Configuration.FenceMode,
+					ipScope.IsInherited})
 			}
 			PrityPrint([]string{"Name", "Id", "Org", "Vdc", "DefaultGateway", "Dns1", "Dns2", "DnsSuffix", "FenceMode", "IsShared", "IsIpScopeInherited"}, data)
 		},
@@ -181,7 +182,11 @@ func NewCmdGetVAppNetwork() *cobra.Command {
 			if err != nil {
 				Fatal(err)
 			}
-			vdcNetworks := GetOrgVdcNetwork(GetVdcId(vapp.VdcName))
+			orgVdc, err := GetVdc(vapp.VdcName)
+			if err != nil {
+				Fatal(err)
+			}
+			vdcNetworks := GetOrgVdcNetwork(orgVdc.Id)
 
 			var data [][]string
 			for _, nw := range GetVAppNetwork(vapp.Id) {
@@ -199,7 +204,7 @@ func NewCmdGetVAppNetwork() *cobra.Command {
 					IpScope.Gateway + "/" + IpScope.SubnetPrefixLength,
 					nw.Configuration.ParentNetwork.Name,
 					nw.Configuration.ParentNetwork.Id,
-					vdcNetwork.FenceMode})
+					vdcNetwork.Configuration.FenceMode})
 			}
 			PrityPrint([]string{"Name", "IsInherited", "IsEnabled", "DefaultGateway", "ParentName", "ParentId", "ParentFenceMode"}, data)
 		},
@@ -319,7 +324,11 @@ func NewCmdGetTask() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			orgId := ""
 			if len(args) > 0 {
-				orgId = GetOrgId(args[0])
+				org, err := GetOrg(args[0])
+				if err != nil {
+					Fatal(err)
+				}
+				orgId = org.Id
 			}
 
 			if taskId == "" {
@@ -422,35 +431,33 @@ func GetOrgVdcs() []OrgVdc {
 }
 
 func GetOrgVdcNetwork(vdcId string) []OrgVdcNetwork {
-	res := client.Request("GET", "/api/admin/vdc/"+vdcId+"/networks", nil, nil)
+	res := client.Request("GET", "/api/admin/vdc/"+vdcId, nil, nil)
 
-	var networkList OrgVdcNetworkList
-	err := xml.Unmarshal(res.Body, &networkList)
+	var adminVdc AdminVdc
+	err := xml.Unmarshal(res.Body, &adminVdc)
 	if err != nil {
 		Fatal(err)
 	}
 
-	var vdcList []OrgVdc = GetOrgVdcs()
+	var orgVdcNetworkList []OrgVdcNetwork
+	for i := 0; i < len(adminVdc.AvailableNetworks.Network); i++ {
+		networkId := LastOne(adminVdc.AvailableNetworks.Network[i].Href, "/")
+		res2 := client.Request("GET", "/api/admin/network/" + networkId, nil, nil)
 
-	for i := 0; i < len(networkList.OrgVdcNetworks); i++ {
-		networkList.OrgVdcNetworks[i].Id = LastOne(networkList.OrgVdcNetworks[i].Href, "/")
-		vdcId = LastOne(networkList.OrgVdcNetworks[i].VdcHref, "/")
-		networkType := GetVdcNetworkType(networkList.OrgVdcNetworks[i].Id)
-		for _, vdc := range vdcList {
-			if vdcId == vdc.Id {
-				networkList.OrgVdcNetworks[i].OrgName = vdc.OrgName
-				networkList.OrgVdcNetworks[i].FenceMode = networkType
-				break
-			}
+		var orgVdcNetwork OrgVdcNetwork
+		err := xml.Unmarshal(res2.Body, &orgVdcNetwork)
+		if err != nil {
+			Fatal(err)
 		}
+		orgVdcNetwork.Id = LastOne(orgVdcNetwork.Href, "/")
+		orgVdcNetworkList = append(orgVdcNetworkList, orgVdcNetwork)
 	}
 
-	nws := networkList.OrgVdcNetworks
-	sort.Slice(nws, func(i, j int) bool {
-		return nws[i].Name < nws[j].Name
+	sort.Slice(orgVdcNetworkList, func(i, j int) bool {
+		return orgVdcNetworkList[i].Name < orgVdcNetworkList[j].Name
 	})
 
-	return nws
+	return orgVdcNetworkList
 }
 
 func GetVApps() []VApp {
@@ -537,22 +544,22 @@ func GetTask(taskId string) Task {
 	return task
 }
 
-func GetOrgId(orgName string) string {
+func GetOrg(orgName string) (Org, error) {
 	for _, org := range GetOrgs() {
 		if org.Name == orgName {
-			return org.Id
+			return org, nil
 		}
 	}
-	return ""
+	return Org{}, fmt.Errorf("Org \"" + orgName + "\" not found")
 }
 
-func GetVdcId(vdcName string) string {
+func GetVdc(vdcName string) (OrgVdc, error) {
 	for _, vdc := range GetOrgVdcs() {
 		if vdc.Name == vdcName {
-			return vdc.Id
+			return vdc, nil
 		}
 	}
-	return ""
+	return OrgVdc{}, fmt.Errorf("Org VDC \"" + vdcName + "\" not found")
 }
 
 func GetVAppByName(vappName string) (VApp, error) {

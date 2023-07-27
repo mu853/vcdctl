@@ -47,7 +47,16 @@ type VApp struct {
 }
 
 type OrgVdcNetworkList struct {
-	OrgVdcNetworks []OrgVdcNetwork `xml:"OrgVdcNetworkRecord"`
+	//OrgVdcNetworks []OrgVdcNetwork `xml:"OrgVdcNetworkRecord"`
+	OrgVdcNetworks []OrgVdcAvailableNetwork `xml:"AvailableNetworks"`
+}
+
+type AdminVdc struct {
+	AvailableNetworks OrgVdcAvailableNetwork `xml:"AvailableNetworks"`
+}
+
+type OrgVdcAvailableNetwork struct {
+	Network []Element `xml:"Network"`
 }
 
 type Element struct {
@@ -57,21 +66,12 @@ type Element struct {
 }
 
 type OrgVdcNetwork struct {
-	Name               string `xml:"name,attr"`
-	Href               string `xml:"href,attr"`
-	Id                 string
-	DefaultGateway     string `xml:"defaultGateway,attr"`
-	Netmask            string `xml:"netmask,attr"`
-	SubnetPrefixLength string `xml:"subnetPrefixLength,attr"`
-	Dns1               string `xml:"dns1,attr"`
-	Dns2               string `xml:"dns2,attr"`
-	DnsSuffix          string `xml:"dnsSuffix,attr"`
-	OrgName            string
-	VdcHref            string `xml:"vdc,attr"`
-	VdcName            string `xml:"vdcName,attr"`
-	IsShared           string `xml:"isShared,attr"`
-	IsIpScopeInherited string `xml:"isIpScopeInherited,attr"`
-	FenceMode          string
+	Name          string               `xml:"name,attr"`
+	Href          string               `xml:"href,attr"`
+	Urn           string               `xml:"id,attr"`
+	Configuration NetworkConfiguration `xml:"Configuration"`
+	IsShared      string               `xml:"IsShared"`
+	Id            string
 }
 
 type NetworkConfigSection struct {
@@ -84,9 +84,13 @@ type Network struct {
 }
 
 type NetworkConfiguration struct {
-	IpScopes      IpScopeList `xml:"IpScopes"`
-	ParentNetwork Element     `xml:"ParentNetwork,omitempty"`
-	FenceMode     string      `xml:"FenceMode"`
+	IpScopes             IpScopeList `xml:"IpScopes"`
+	ParentNetwork        Element     `xml:"ParentNetwork,omitempty"`
+	FenceMode            string      `xml:"FenceMode"`
+	DistributedInterface string      `xml:"DistributedInterface,omitempty"`
+	ServiceInterface     string      `xml:"ServiceInterface,omitempty"`
+	GuestVlanAllowed     string      `xml:"GuestVlanAllowed,omitempty"`
+	Connected            string      `xml:"Connected,omitempty"`
 }
 
 type IpScopeList struct {
@@ -98,6 +102,9 @@ type IpScope struct {
 	Gateway            string `xml:"Gateway"`
 	Netmask            string `xml:"Netmask"`
 	SubnetPrefixLength string `xml:"SubnetPrefixLength"`
+	Dns1               string `xml:"Dns1,omitempty"`
+	Dns2               string `xml:"Dns2,omitempty"`
+	DnsSuffix          string `xml:"DnsSuffix,omitempty"`
 	IsEnabled          string `xml:"IsEnabled"`
 }
 
