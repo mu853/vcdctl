@@ -370,7 +370,7 @@ func NewCmdGetTask() *cobra.Command {
 
 				if len(task.VcTaskList.VcTask) > 0 {
 					fmt.Println("VcTasks: ")
-					header := []string{"Org", "Operation", "Id", "Status", "Object", "Start", "End"}
+					header := []string{"Operation", "Status", "ObjectType", "ObjectName", "ObjectId", "Start", "End"}
 					var data [][]string
 					for _, vt := range task.VcTaskList.VcTask {
 						data = append(data, []string{
