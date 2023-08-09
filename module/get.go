@@ -411,19 +411,31 @@ func GetOrgs() []Org {
 }
 
 func GetOrgVdcs() []OrgVdc {
-	res := client.Request("GET", "/api/query?type=adminOrgVdc", nil, nil)
-
+	var vdcs []OrgVdc
 	var orgVdcList OrgVdcList
+
+	res := client.Request("GET", "/api/query?type=adminOrgVdc", nil, nil)
 	err := xml.Unmarshal(res.Body, &orgVdcList)
 	if err != nil {
 		Fatal(err)
 	}
+	vdcs = append(vdcs, orgVdcList.OrgVdc...)
 
-	for i := 0; i < len(orgVdcList.OrgVdc); i++ {
-		orgVdcList.OrgVdc[i].Id = LastOne(orgVdcList.OrgVdc[i].Href, "/")
+	for orgVdcList.Total > orgVdcList.PageSize*orgVdcList.Page {
+		api := fmt.Sprintf("/api/query?type=adminOrgVdc&pageSize=%d&page=%d", orgVdcList.PageSize, orgVdcList.Page+1)
+		res := client.Request("GET", api, nil, nil)
+		orgVdcList = OrgVdcList{}
+		err := xml.Unmarshal(res.Body, &orgVdcList)
+		if err != nil {
+			Fatal(err)
+		}
+		vdcs = append(vdcs, orgVdcList.OrgVdc...)
 	}
 
-	vdcs := orgVdcList.OrgVdc
+	for i := 0; i < len(vdcs); i++ {
+		vdcs[i].Id = LastOne(vdcs[i].Href, "/")
+	}
+
 	sort.Slice(vdcs, func(i, j int) bool {
 		return vdcs[i].Name < vdcs[j].Name
 	})
@@ -442,7 +454,7 @@ func GetOrgVdcNetwork(vdcId string) []OrgVdcNetwork {
 	var orgVdcNetworkList []OrgVdcNetwork
 	for i := 0; i < len(adminVdc.AvailableNetworks.Network); i++ {
 		networkId := LastOne(adminVdc.AvailableNetworks.Network[i].Href, "/")
-		res2 := client.Request("GET", "/api/admin/network/" + networkId, nil, nil)
+		res2 := client.Request("GET", "/api/admin/network/"+networkId, nil, nil)
 
 		var orgVdcNetwork OrgVdcNetwork
 		err := xml.Unmarshal(res2.Body, &orgVdcNetwork)

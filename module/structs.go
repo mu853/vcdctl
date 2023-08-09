@@ -11,7 +11,10 @@ type Org struct {
 }
 
 type OrgVdcList struct {
-	OrgVdc []OrgVdc `xml:"AdminVdcRecord"`
+	PageSize int      `xml:"pageSize,attr"`
+	Page     int      `xml:"page,attr"`
+	Total    int      `xml:"total,attr"`
+	OrgVdc   []OrgVdc `xml:"AdminVdcRecord"`
 }
 
 type OrgVdc struct {
