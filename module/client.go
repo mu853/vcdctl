@@ -3,6 +3,7 @@ package module
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -73,6 +74,15 @@ func (c *VcdClient) Request(method string, path string, header map[string]string
 	}
 	for k, v := range header {
 		req.Header.Set(k, v)
+	}
+
+	if isDebugMode {
+		fmt.Printf("Method: %s\n", method)
+		fmt.Printf("Path: %s\n", path)
+		for key, value := range(header){
+			fmt.Printf("Header: %s: %s\n", key, value)
+		}
+		fmt.Printf("Data: %s\n", bytes.NewBuffer(req_data))
 	}
 
 	// Get response

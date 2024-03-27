@@ -8,6 +8,7 @@ var (
 	client         VcdClient
 	config         Config
 	configFilePath string
+	isDebugMode    bool
 )
 
 func GetCmdRoot() *cobra.Command {
@@ -25,6 +26,7 @@ func GetCmdRoot() *cobra.Command {
 		NewCmdApi(),
 	)
 	cmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", defaultConfigFilePath(), "path to vcdctl config file")
+	cmd.PersistentFlags().BoolVar(&isDebugMode, "debug", false, "for debug")
 
 	return cmd
 }
