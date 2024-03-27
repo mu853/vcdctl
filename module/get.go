@@ -474,27 +474,33 @@ func GetOrgVdcNetwork(vdcId string) []OrgVdcNetwork {
 }
 
 func GetVApps() []VApp {
-	res := client.Request("GET", "/api/admin/extension/vapps/query", nil, nil)
-
-	var vappList VAppList
-	err := xml.Unmarshal(res.Body, &vappList)
-	if err != nil {
-		Fatal(err)
+	vapps := []VApp{}
+	page := 1
+	for {
+		res := client.Request("GET", fmt.Sprintf("/api/admin/extension/vapps/query?page=%d", page), nil, nil)
+		var vappList VAppList
+		if err := xml.Unmarshal(res.Body, &vappList); err != nil {
+			Fatal(err)
+		}
+		vapps = append(vapps, vappList.VApp...)
+		if vappList.Total <= vappList.Page * vappList.PageSize {
+			break
+		}
+		page++
 	}
 
 	var orgList []Org = GetOrgs()
 
-	for i := 0; i < len(vappList.VApp); i++ {
-		vappList.VApp[i].Id = LastOne(vappList.VApp[i].Href, "/")
+	for i := 0; i < len(vapps); i++ {
+		vapps[i].Id = LastOne(vapps[i].Href, "/")
 		for _, org := range orgList {
-			if vappList.VApp[i].OrgHref == org.Href {
-				vappList.VApp[i].OrgName = org.Name
+			if vapps[i].OrgHref == org.Href {
+				vapps[i].OrgName = org.Name
 				break
 			}
 		}
 	}
 
-	vapps := vappList.VApp
 	sort.Slice(vapps, func(i, j int) bool {
 		return vapps[i].Name < vapps[j].Name
 	})

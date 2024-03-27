@@ -32,7 +32,10 @@ type OrgVdc struct {
 }
 
 type VAppList struct {
-	VApp []VApp `xml:"AdminVAppRecord"`
+	Page     int    `xml:"page,attr"`
+	PageSize int    `xml:"pageSize,attr"`
+	Total    int    `xml:"total,attr"`
+	VApp     []VApp `xml:"AdminVAppRecord"`
 }
 
 type VApp struct {
