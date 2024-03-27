@@ -125,6 +125,7 @@ func NewCmdGetOrgVdcNetwork() *cobra.Command {
 					ipScope.Dns2,
 					ipScope.DnsSuffix,
 					nw.Configuration.FenceMode,
+					nw.IsShared,
 					ipScope.IsInherited})
 			}
 			PrityPrint([]string{"Name", "Id", "Org", "Vdc", "DefaultGateway", "Dns1", "Dns2", "DnsSuffix", "FenceMode", "IsShared", "IsIpScopeInherited"}, data)
