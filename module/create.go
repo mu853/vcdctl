@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -164,49 +164,113 @@ func NewCmdCreateOrgVdc() *cobra.Command {
 }
 
 func NewCmdCreateOrgVdcNetwork() *cobra.Command {
+	var orgvdcName string
+	var networkType string
+	var gatewayName string
+	var gatewayCidr string
+
 	cmd := &cobra.Command{
-		Use:     "vdc-network ${VDC_NAME}",
+		Use:     "vdc-network ${NETWORK_NAME}",
 		Short:   "Create VdcNetwork [vn]",
 		Aliases: []string{"vn"},
 		Args:    cobra.ExactArgs(1),
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			if len(args) != 0 {
-				return nil, cobra.ShellCompDirectiveNoFileComp
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) == 0 {
+				cmd.Help()
+				return
 			}
-			initClient()
-			orgVdcs := GetOrgVdcs()
-			vdcNames := []string{}
-			for _, vdc := range orgVdcs {
-				vdcNames = append(vdcNames, vdc.Name)
+			networkName := args[0]
+
+			type Reference struct {
+				Id string `json:"id"`
 			}
 
-			return vdcNames, cobra.ShellCompDirectiveNoFileComp
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			vcdName := args[0]
-			orgVdc, err := GetVdc(vcdName)
+			type ConnectionInfo struct {
+				RouterRef           Reference `json:"routerRef"`
+				ConnectionTypeValue string    `json:"connectionTypeValue"` //INTERNAL
+			}
+
+			type Subnet struct {
+				Gateway         string `json:"gateway"`
+				PrefixLength    int    `json:"prefixLength"`
+				DnsSuffix       string `json:"dnsSuffix"`
+				DnsServer1      string `json:"dnsServer1"`
+				DnsServer2      string `json:"dnsServer2"`
+			}
+
+			type Subnets struct {
+				Values []Subnet `json:"values"`
+			}
+
+			//since omitempty doesn't work for predefined types, using pointer type
+			type CreateVdcNetworkParams struct {
+				Name            string          `json:"name"`
+				Subnets         *Subnets        `json:"subnets,omitempty"`
+				NetworkType     string          `json:"networkType"`
+				Connection      *ConnectionInfo `json:"connection,omitempty"`
+				OwnerRef        Reference       `json:"ownerRef"`
+				Shared          bool            `json:"shared,omitempty"`
+				ParentNetworkId *Reference      `json:"parentNetworkId,omitempty"`
+			}
+
+			vdc, err := GetVdc(orgvdcName)
 			if err != nil {
 				Fatal(err)
 			}
-			var data [][]string
-			for _, nw := range GetOrgVdcNetwork(orgVdc.Id) {
-				ipScope := nw.Configuration.IpScopes.IpScope[0]
-				data = append(data, []string{
-					nw.Name,
-					nw.Id,
-					orgVdc.OrgName,
-					vcdName,
-					ipScope.Gateway + "/" + ipScope.SubnetPrefixLength,
-					ipScope.Dns1,
-					ipScope.Dns2,
-					ipScope.DnsSuffix,
-					nw.Configuration.FenceMode,
-					nw.IsShared,
-					ipScope.IsInherited})
+
+			newVdcNetwork := CreateVdcNetworkParams{
+				Name: networkName,
+				NetworkType: networkType,
+				OwnerRef: Reference{ Id: fmt.Sprintf("urn:vcloud:vdc:%s", vdc.Id) },
 			}
-			PrityPrint([]string{"Name", "Id", "Org", "Vdc", "DefaultGateway", "Dns1", "Dns2", "DnsSuffix", "FenceMode", "IsShared", "IsIpScopeInherited"}, data)
+
+			if networkType == "DIRECT" {
+				newVdcNetwork.Shared = true
+				newVdcNetwork.ParentNetworkId = &Reference{ Id: GetExternalNetwork(networkName).Id }
+			} else {
+				gatewayCidrArr := strings.Split(gatewayCidr, "/")
+				if len(gatewayCidrArr) != 2 {
+					Fatal(fmt.Sprintf("gateway cidr [%s] is invalid", gatewayCidr))
+				}
+				prefixLen, err := strconv.Atoi(gatewayCidrArr[1])
+				if err != nil {
+					Fatal(err)
+				}
+
+				newVdcNetwork.Subnets = &Subnets{
+					Values: []Subnet{
+						{
+							Gateway: gatewayCidrArr[0],
+							PrefixLength: prefixLen,
+							DnsSuffix: "",
+							DnsServer1: "",
+							DnsServer2: "",
+						},
+					},
+				}
+			}
+
+			if networkType == "NAT_ROUTED" {
+				newVdcNetwork.Connection = &ConnectionInfo{
+					RouterRef: Reference{ Id: GetEdge(gatewayName, orgvdcName).Id },
+					ConnectionTypeValue: "INTERNAL",
+				}
+			}
+
+			data, err := json.Marshal(newVdcNetwork)
+			if err != nil {
+				Fatal(err)
+			}
+
+			header := map[string]string{ "Content-Type": "application/json" }
+			res := client.Request("POST", "/cloudapi/1.0.0/orgVdcNetworks", header, data)
+			fmt.Println(string(res.Body))
 		},
 	}
+	cmd.PersistentFlags().StringVarP(&orgvdcName, "orgvdc", "v", "", "org vdc name")
+	cmd.PersistentFlags().StringVarP(&networkType, "type", "t", "", "network type (NAT_ROUTED | ISOLATED | DIRECT)")
+	cmd.PersistentFlags().StringVarP(&gatewayName, "gateway", "g", "", "gateway name")
+	cmd.PersistentFlags().StringVarP(&gatewayCidr, "cidr", "", "", "gateway cidr")
 	return cmd
 }
 
@@ -216,20 +280,7 @@ func NewCmdCreateVApp() *cobra.Command {
 		Aliases: []string{"a"},
 		Short:   "Create VApp [a]",
 		Run: func(cmd *cobra.Command, args []string) {
-			var data [][]string
-			for _, vapp := range GetVApps() {
-				data = append(data, []string{
-					vapp.Name,
-					vapp.Id,
-					vapp.IsEnabled,
-					vapp.Status,
-					vapp.OrgName,
-					vapp.VdcName,
-					strconv.Itoa(vapp.NumberOfVMs),
-					vapp.TaskStatusName,
-					vapp.TaskStatus})
-			}
-			PrityPrint([]string{"Name", "Id", "IsEnabled", "Status", "Org", "Vdc", "VMs", "TaskStatusName", "TaskStatus"}, data)
+			//
 		},
 	}
 	return cmd
@@ -255,55 +306,8 @@ func NewCmdCreateVAppNetwork() *cobra.Command {
 			return vappNames, cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			vapp, err := GetVAppByName(args[0])
-			if err != nil {
-				Fatal(err)
-			}
-			orgVdc, err := GetVdc(vapp.VdcName)
-			if err != nil {
-				Fatal(err)
-			}
-			vdcNetworks := GetOrgVdcNetwork(orgVdc.Id)
-
-			var data [][]string
-			for _, nw := range GetVAppNetwork(vapp.Id) {
-				IpScope := nw.Configuration.IpScopes.IpScope[0]
-				var vdcNetwork OrgVdcNetwork
-				for _, vdcnw := range vdcNetworks {
-					if nw.Configuration.ParentNetwork.Id == vdcnw.Id {
-						vdcNetwork = vdcnw
-					}
-				}
-				data = append(data, []string{
-					nw.Name,
-					IpScope.IsInherited,
-					IpScope.IsEnabled,
-					IpScope.Gateway + "/" + IpScope.SubnetPrefixLength,
-					nw.Configuration.ParentNetwork.Name,
-					nw.Configuration.ParentNetwork.Id,
-					vdcNetwork.Configuration.FenceMode})
-			}
-			PrityPrint([]string{"Name", "IsInherited", "IsEnabled", "DefaultGateway", "ParentName", "ParentId", "ParentFenceMode"}, data)
+			//
 		},
 	}
 	return cmd
-}
-
-func GetOrgs_() []Org {
-	res := client.Request("GET", "/api/org", nil, nil)
-	var orgList OrgList
-	err := xml.Unmarshal(res.Body, &orgList)
-	if err != nil {
-		Fatal(err)
-	}
-
-	for i := 0; i < len(orgList.Org); i++ {
-		orgList.Org[i].Id = LastOne(orgList.Org[i].Href, "/")
-	}
-
-	orgs := orgList.Org
-	sort.Slice(orgs, func(i, j int) bool {
-		return orgs[i].Name < orgs[j].Name
-	})
-	return orgs
 }

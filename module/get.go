@@ -700,6 +700,48 @@ func GetStorageProfile(name string, providerVdcName string) VdcReference {
 
 	return VdcReference {
 		Name: result.Values[0].Name,
-		Id: fmt.Sprintf("urn:vcloud:providervdcstorageprofile:%s", LastOne(result.Values[0].Urn, ":")),
+		Id: result.Values[0].Urn,
+	}
+}
+
+func GetEdge(name string, orgvdcName string) VdcReference {
+	api := fmt.Sprintf("/cloudapi/1.0.0/edgeGateways?filter=(name==%s;orgVdc.name==%s)", name, orgvdcName)
+	res := client.Request("GET", api, nil, nil)
+
+	result := struct {
+		Values []struct {
+			Urn  string `json:"id"`
+			Name string `json:"name"`
+		} `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+
+	return VdcReference {
+		Name: result.Values[0].Name,
+		Id: result.Values[0].Urn,
+	}
+}
+
+func GetExternalNetwork(name string) VdcReference {
+	api := fmt.Sprintf("/cloudapi/1.0.0/externalNetworks?filter=(name==%s)", name)
+	res := client.Request("GET", api, nil, nil)
+
+	result := struct {
+		Values []struct {
+			Urn  string `json:"id"`
+			Name string `json:"name"`
+		} `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+
+	return VdcReference {
+		Name: result.Values[0].Name,
+		Id: result.Values[0].Urn,
 	}
 }
