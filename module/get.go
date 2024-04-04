@@ -1,6 +1,7 @@
 package module
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"sort"
@@ -303,6 +304,7 @@ func NewCmdGetVAppVmNetwork() *cobra.Command {
 
 func NewCmdGetTask() *cobra.Command {
 	var taskId string
+	var latest bool
 
 	cmd := &cobra.Command{
 		Use:     "task",
@@ -324,12 +326,18 @@ func NewCmdGetTask() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			orgId := ""
+			orgName := client.site.OrgName
 			if len(args) > 0 {
-				org, err := GetOrg(args[0])
-				if err != nil {
-					Fatal(err)
-				}
+				orgName = args[0]
+			}
+			if orgName != "" {
+				org := GetOrg(orgName)
 				orgId = org.Id
+			}
+
+			if latest {
+				task := GetTasks(orgId)[0]
+				taskId = LastOne(task.Href, "/")
 			}
 
 			if taskId == "" {
@@ -389,6 +397,7 @@ func NewCmdGetTask() *cobra.Command {
 		},
 	}
 	cmd.PersistentFlags().StringVarP(&taskId, "id", "i", "", "task id")
+	cmd.PersistentFlags().BoolVarP(&latest, "latest", "l", false, "latest task")
 	return cmd
 }
 
@@ -526,6 +535,8 @@ func GetTasks(orgId string) []Task {
 	orgIdList := []string{}
 	if orgId != "" {
 		orgIdList = append(orgIdList, orgId)
+		system := GetOrg("System")
+		orgIdList = append(orgIdList, system.Id)
 	} else {
 		for _, org := range GetOrgs() {
 			orgIdList = append(orgIdList, org.Id)
@@ -563,13 +574,19 @@ func GetTask(taskId string) Task {
 	return task
 }
 
-func GetOrg(orgName string) (Org, error) {
-	for _, org := range GetOrgs() {
-		if org.Name == orgName {
-			return org, nil
-		}
+func GetOrg(orgName string) Org {
+	res := client.Request("GET", fmt.Sprintf("/api/admin/orgs/query?filter=(name==%s)", orgName), nil, nil)
+
+	var orgResults struct {
+		OrgRecord Org `xml:"OrgRecord"`
 	}
-	return Org{}, fmt.Errorf("Org \"" + orgName + "\" not found")
+	err := xml.Unmarshal(res.Body, &orgResults)
+	if err != nil {
+		Fatal(err)
+	}
+	orgResults.OrgRecord.Id = LastOne(orgResults.OrgRecord.Href, "/")
+
+	return orgResults.OrgRecord
 }
 
 func GetVdc(vdcName string) (OrgVdc, error) {
@@ -622,4 +639,67 @@ func GetVAppVm(vappId string) []VM {
 	})
 
 	return vms
+}
+
+func GetProviderVdc(name string) VdcReference {
+	res := client.Request("GET", fmt.Sprintf("/api/admin/extension/providerVdcReferences/query?filter=(name==%s)", name), nil, nil)
+
+	result := struct {
+		VMWProviderVdcRecord struct {
+			Name string `xml:"name,attr"`
+			Href string `xml:"href,attr"`
+		} `xml:"VMWProviderVdcRecord"`
+	}{}
+	err := xml.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+
+	return VdcReference {
+		Name: result.VMWProviderVdcRecord.Name,
+		Href: result.VMWProviderVdcRecord.Href,
+		Id: fmt.Sprintf("urn:vcloud:providervdc:%s", LastOne(result.VMWProviderVdcRecord.Href, "/")),
+	}
+}
+
+func GetNetworkPool(name string) VdcReference {
+	res := client.Request("GET", fmt.Sprintf("/api/admin/extension/networkPoolReferences/query?filter=(name==%s)", name), nil, nil)
+
+	result := struct {
+		NetworkPoolRecord struct {
+			Name string `xml:"name,attr"`
+			Href string `xml:"href,attr"`
+		} `xml:"NetworkPoolRecord"`
+	}{}
+	err := xml.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+
+	return VdcReference {
+		Name: result.NetworkPoolRecord.Name,
+		Href: result.NetworkPoolRecord.Href,
+		Id: fmt.Sprintf("urn:vcloud:networkpool:%s", LastOne(result.NetworkPoolRecord.Href, "/")),
+	}
+}
+
+func GetStorageProfile(name string, providerVdcName string) VdcReference {
+	api := fmt.Sprintf("/cloudapi/1.0.0/pvdcStoragePolicies?filter=(name==%s;providerVdcRef.name==%s)", name, providerVdcName)
+	res := client.Request("GET", api, nil, nil)
+
+	result := struct {
+		Values []struct {
+			Urn  string `json:"id"`
+			Name string `json:"name"`
+		} `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+
+	return VdcReference {
+		Name: result.Values[0].Name,
+		Id: fmt.Sprintf("urn:vcloud:providervdcstorageprofile:%s", LastOne(result.Values[0].Urn, ":")),
+	}
 }

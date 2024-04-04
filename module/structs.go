@@ -10,6 +10,12 @@ type Org struct {
 	Name string `xml:"name,attr"`
 }
 
+type OrgJson struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Id          string `json:"id"`
+}
+
 type OrgVdcList struct {
 	PageSize int      `xml:"pageSize,attr"`
 	Page     int      `xml:"page,attr"`
@@ -62,13 +68,13 @@ type AdminVdc struct {
 }
 
 type OrgVdcAvailableNetwork struct {
-	Network []Element `xml:"Network"`
+	Network []VdcReference `xml:"Network"`
 }
 
-type Element struct {
+type VdcReference struct {
+	Name string `xml:"name,attr"`
 	Href string `xml:"href,attr"`
 	Id   string `xml:"id,attr"`
-	Name string `xml:"name,attr"`
 }
 
 type OrgVdcNetwork struct {
@@ -90,13 +96,13 @@ type Network struct {
 }
 
 type NetworkConfiguration struct {
-	IpScopes             IpScopeList `xml:"IpScopes"`
-	ParentNetwork        Element     `xml:"ParentNetwork,omitempty"`
-	FenceMode            string      `xml:"FenceMode"`
-	DistributedInterface string      `xml:"DistributedInterface,omitempty"`
-	ServiceInterface     string      `xml:"ServiceInterface,omitempty"`
-	GuestVlanAllowed     string      `xml:"GuestVlanAllowed,omitempty"`
-	Connected            string      `xml:"Connected,omitempty"`
+	IpScopes             IpScopeList  `xml:"IpScopes"`
+	ParentNetwork        VdcReference `xml:"ParentNetwork,omitempty"`
+	FenceMode            string       `xml:"FenceMode"`
+	DistributedInterface string       `xml:"DistributedInterface,omitempty"`
+	ServiceInterface     string       `xml:"ServiceInterface,omitempty"`
+	GuestVlanAllowed     string       `xml:"GuestVlanAllowed,omitempty"`
+	Connected            string       `xml:"Connected,omitempty"`
 }
 
 type IpScopeList struct {
@@ -151,18 +157,18 @@ type TaskList struct {
 }
 
 type Task struct {
-	Operation     string     `xml:"operation,attr"`
-	OperationName string     `xml:"operationName,attr"`
-	Status        string     `xml:"status,attr"`
-	StartTime     string     `xml:"startTime,attr"`
-	EndTime       string     `xml:"endTime,attr"`
-	Href          string     `xml:"href,attr"`
-	Urn           string     `xml:"id,attr"`
-	Org           Element    `xml:"Organization"`
-	User          Element    `xml:"User"`
-	Owner         Element    `xml:"Owner"`
-	Error         TaskError  `xml:"Error,omitempty"`
-	VcTaskList    VcTaskList `xml:"VcTaskList,omitempty"`
+	Operation     string       `xml:"operation,attr"`
+	OperationName string       `xml:"operationName,attr"`
+	Status        string       `xml:"status,attr"`
+	StartTime     string       `xml:"startTime,attr"`
+	EndTime       string       `xml:"endTime,attr"`
+	Href          string       `xml:"href,attr"`
+	Urn           string       `xml:"id,attr"`
+	Org           VdcReference `xml:"Organization"`
+	User          VdcReference `xml:"User"`
+	Owner         VdcReference `xml:"Owner"`
+	Error         TaskError    `xml:"Error,omitempty"`
+	VcTaskList    VcTaskList   `xml:"VcTaskList,omitempty"`
 }
 
 type TaskError struct {

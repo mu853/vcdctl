@@ -88,7 +88,7 @@ func (c *VcdClient) Request(method string, path string, header map[string]string
 	// Get response
 	res, err := c.httpClient.Do(req)
 	if err != nil {
-		Fatal()
+		Fatal(err)
 	}
 	res_body, err := io.ReadAll(res.Body)
 	if err != nil {

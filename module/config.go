@@ -31,6 +31,7 @@ func NewCmdConfigSetSite() *cobra.Command {
 	var endpoint string
 	var user string
 	var password string
+	var orgname string
 
 	cmd := &cobra.Command{
 		Use:   "set-site ${SITE_NAME}",
@@ -43,14 +44,15 @@ func NewCmdConfigSetSite() *cobra.Command {
 			if err != nil {
 				site = Site{}
 				site.Name = name
+				site.Endpoint = endpoint
+				site.User = user
+				site.SetPassword(password)
+				site.OrgName = orgname
 				config.Sites = append(config.Sites, site)
 				if len(config.Sites) == 1 {
 					config.CurrentSite = site.Name
 				}
 			}
-			site.Endpoint = endpoint
-			site.User = user
-			site.SetPassword(password)
 
 			saveConfig()
 		},
@@ -58,9 +60,11 @@ func NewCmdConfigSetSite() *cobra.Command {
 	cmd.Flags().StringVarP(&endpoint, "endpoint", "e", "", "endpoint for the new site (https://{vcdmanager})")
 	cmd.Flags().StringVarP(&user, "user", "u", "", "user for the new site")
 	cmd.Flags().StringVarP(&password, "password", "p", "", "password for the new site user")
+	cmd.Flags().StringVarP(&orgname, "orgname", "o", "", "default org name")
 	cmd.MarkFlagRequired("endpoint")
 	cmd.MarkFlagRequired("user")
 	cmd.MarkFlagRequired("password")
+	cmd.MarkFlagRequired("orgname")
 
 	return cmd
 }
@@ -70,7 +74,7 @@ func NewCmdConfigGetSites() *cobra.Command {
 		Use:   "get-sites",
 		Short: "show vcd site configurations",
 		Run: func(cmd *cobra.Command, args []string) {
-			header := []string{"Current", "Name", "Endpoint", "User"}
+			header := []string{"Current", "Name", "Endpoint", "User", "Org"}
 
 			var data [][]string
 			for _, s := range config.Sites {
@@ -78,7 +82,7 @@ func NewCmdConfigGetSites() *cobra.Command {
 				if s.Name == config.CurrentSite {
 					current = "*"
 				}
-				data = append(data, []string{current, s.Name, s.Endpoint, s.User})
+				data = append(data, []string{current, s.Name, s.Endpoint, s.User, s.OrgName})
 			}
 
 			PrityPrint(header, data)
@@ -137,6 +141,7 @@ type Site struct {
 	Endpoint string `json:"endpoint"`
 	User     string `json:"user"`
 	Password string `json:"password"`
+	OrgName  string `json:"orgname"`
 }
 
 func (c *Config) GetCurrentSite() (Site, error) {
