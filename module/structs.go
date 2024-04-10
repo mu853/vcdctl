@@ -37,6 +37,48 @@ type OrgVdc struct {
 	NumberOfVAppTemplates int    `xml:"numberOfVAppTemplates,attr"`
 }
 
+type CapacityWithUsageType struct {
+	Units           string `xml:"Units"`
+	Allocated       int    `xml:"Allocated"`
+	Limit           int    `xml:"Limit"`
+	Reserved        int    `xml:"Reserved"`
+	Used            int    `xml:"Used"`
+	ReservationUsed int    `xml:"ReservationUsed"`
+}
+
+type ComputeCapacity struct {
+	Cpu    CapacityWithUsageType `xml:"Cpu"`
+	Memory CapacityWithUsageType `xml:"Memory"`
+}
+
+type VdcStorageProfile struct {
+	Enabled                   bool         `xml:"Enabled"`
+	Units                     string       `xml:"Units"`
+	Limit                     int          `xml:"Limit"`
+	Default                   bool         `xml:"Default"`
+	ProviderVdcStorageProfile Reference    `xml:"ProviderVdcStorageProfile"`
+}
+
+type ConnectionInfo struct {
+	RouterRef           ReferenceJson `json:"routerRef"`
+	ConnectionTypeValue string        `json:"connectionTypeValue"` //INTERNAL or NON_DISTRIBUTED
+	Connected           bool          `json:"connected"`
+}
+
+type Subnet struct {
+	Gateway         string   `json:"gateway"`
+	PrefixLength    int      `json:"prefixLength"`
+	DnsSuffix       string   `json:"dnsSuffix"`
+	DnsServer1      string   `json:"dnsServer1"`
+	DnsServer2      string   `json:"dnsServer2"`
+	IpRanges        *IpRange `json:"ipRanges,omitempty"`
+	Enabled         bool     `json:"enabled,omitempty"`
+}
+
+type Subnets struct {
+	Values []Subnet `json:"values"`
+}
+
 type VAppList struct {
 	Page     int    `xml:"page,attr"`
 	PageSize int    `xml:"pageSize,attr"`
@@ -68,13 +110,18 @@ type AdminVdc struct {
 }
 
 type OrgVdcAvailableNetwork struct {
-	Network []VdcReference `xml:"Network"`
+	Network []Reference `xml:"Network"`
 }
 
-type VdcReference struct {
+type Reference struct {
 	Name string `xml:"name,attr"`
 	Href string `xml:"href,attr"`
 	Id   string `xml:"id,attr"`
+}
+
+type ReferenceJson struct {
+	Name string `json:"name,omitempty"`
+	Urn  string `json:"id"`
 }
 
 type OrgVdcNetwork struct {
@@ -97,12 +144,32 @@ type Network struct {
 
 type NetworkConfiguration struct {
 	IpScopes             IpScopeList  `xml:"IpScopes"`
-	ParentNetwork        VdcReference `xml:"ParentNetwork,omitempty"`
+	ParentNetwork        *Reference   `xml:"ParentNetwork,omitempty"`
 	FenceMode            string       `xml:"FenceMode"`
 	DistributedInterface string       `xml:"DistributedInterface,omitempty"`
 	ServiceInterface     string       `xml:"ServiceInterface,omitempty"`
 	GuestVlanAllowed     string       `xml:"GuestVlanAllowed,omitempty"`
 	Connected            string       `xml:"Connected,omitempty"`
+}
+
+type OrgVdcNetworkJson struct {
+	Urn                     string          `json:"id,omitempty"`
+	Name                    string          `json:"name"`
+	Subnets                 *Subnets        `json:"subnets,omitempty"`
+	BackingNetworkId        string          `json:"backingNetworkId,omitempty"`
+	BackingNetworkType      string          `json:"backingNetworkType,omitempty"`
+	ParentNetworkId         *ReferenceJson  `json:"parentNetworkId,omitempty"`
+	NetworkType             string          `json:"networkType"`
+	OrgVdc                  *ReferenceJson  `json:"orgVdc,omitempty"`
+	OwnerRef                ReferenceJson   `json:"ownerRef"`
+	OrgRef                  *ReferenceJson  `json:"orgRef,omitempty"`
+	OrgVdcIsNsxTBacked      bool            `json:"orgVdcIsNsxTBacked,omitempty"`
+	Connection              *ConnectionInfo `json:"connection,omitempty"`
+	IsDefaultNetwork        bool            `json:"isDefaultNetwork,omitempty"`
+	Shared                  bool            `json:"shared,omitempty"`
+	EnableDualSubnetNetwork bool            `json:"enableDualSubnetNetwork,omitempty"`
+	GuestVlanTaggingAllowed bool            `json:"guestVlanTaggingAllowed,omitempty"`
+	RetainNicResources      bool            `json:"retainNicResources,omitempty"`
 }
 
 type IpScopeList struct {
@@ -118,6 +185,86 @@ type IpScope struct {
 	Dns2               string `xml:"Dns2,omitempty"`
 	DnsSuffix          string `xml:"DnsSuffix,omitempty"`
 	IsEnabled          string `xml:"IsEnabled"`
+}
+
+type NetworkBacking struct {
+	Name            string           `json:"name"`
+	Id              string           `json:"backingId"`
+	BackingType     string           `json:"backingType"`
+	NetworkProvider ReferenceJson    `json:"networkProvider"`
+}
+
+type NetworkBackings struct {
+	Values []NetworkBacking `json:"values"`
+}
+
+type ProviderGateway struct {
+	Urn             string                   `json:"id"`
+	Name            string                   `json:"name"`
+	Subnets         EdgeGatewayUplinkSubnets `json:"subnets"`
+	NetworkBackings NetworkBackings          `json:"networkBackings"`
+}
+
+type EdgeGatewayUplinkSubnets struct {
+	Values []EdgeGatewayUplinkSubnet `json:"values"`
+}
+
+type EdgeGatewayUplinkSubnet struct {
+	GatewayAddress       string    `json:"gateway"`
+	PrefixLength         int       `json:"prefixLength"`
+	DnsSuffix            string    `json:"dnsSuffix"`
+	DnsServer1           string    `json:"dnsServer1"`
+	DnsServer2           string    `json:"dnsServer2"`
+	IpRanges             *IpRanges `json:"ipRanges,omitempty"`
+	PrimaryIp            string    `json:"primaryIp,omitempty"`
+	AutoAllocateIpRanges bool      `json:"autoAllocateIpRanges"`
+	TotalIpCount         int       `json:"totalIpCount,omitempty"`
+}
+
+type EdgeGatewayUplink struct {
+	UplinkId      string                   `json:"uplinkId"`
+	UplinkName    string                   `json:"uplinkName"`
+	Subnets       EdgeGatewayUplinkSubnets `json:"subnets"`
+	Dedicated     bool                     `json:"dedicated"`
+	Connected     bool                     `json:"connected"`
+	UsingIpSpace  bool                     `json:"usingIpSpace"`
+	VrfLiteBacked bool                     `json:"vrfLiteBacked"`
+	BackingType   string                   `json:"backingType"`
+}
+
+type EdgeGateway struct {
+	Urn                                      string               `json:"id,omitempty"`
+	Name                                     string               `json:"name"`
+	EdgeGatewayUplinks                       []EdgeGatewayUplink  `json:"edgeGatewayUplinks"`
+	DistributedRoutingEnabled                bool                 `json:"distributedRoutingEnabled"`
+	NonDistributedRoutingEnabled             bool                 `json:"nonDistributedRoutingEnabled"`
+	ServiceNetworkDefinition                 string               `json:"serviceNetworkDefinition"`
+	DistributedRouterUplinkNetworkDefinition string               `json:"distributedRouterUplinkNetworkDefinition"`
+	OrgVdcNetworkCount                       int                  `json:"orgVdcNetworkCount,omitempty"`
+	GatewayBacking                           *NetworkBacking      `json:"gatewayBacking,omitempty"`
+	EdgeClusterConfig                        *EdgeClusterConfig   `json:"edgeClusterConfig,omitempty"`
+	OwnerRef                                 ReferenceJson        `json:"ownerRef"`
+	OrgVdc                                   *ReferenceJson       `json:"orgVdc,omitempty"`
+	OrgRef                                   *ReferenceJson       `json:"orgRef,omitempty"`
+}
+
+type EdgeClusterConfig struct {
+	PrimaryEdgeCluster   EdgeClusterConfigSub  `json:"primaryEdgeCluster"`
+	SecondaryEdgeCluster *EdgeClusterConfigSub `json:"secondaryEdgeCluster,omitempty"`
+}
+
+type EdgeClusterConfigSub struct {
+	EdgeClusterRef ReferenceJson `json:"edgeClusterRef"`
+	BackingId      string        `json:"backingId"`
+}
+
+type IpRanges struct {
+	Values []*IpRange `json:"values,omitempty"`
+}
+
+type IpRange struct {
+	StartAddress string `json:"startAddress,omitempty"`
+	EndAddress   string `json:"endAddress,omitempty"`
 }
 
 type VAppDetails struct {
@@ -157,18 +304,18 @@ type TaskList struct {
 }
 
 type Task struct {
-	Operation     string       `xml:"operation,attr"`
-	OperationName string       `xml:"operationName,attr"`
-	Status        string       `xml:"status,attr"`
-	StartTime     string       `xml:"startTime,attr"`
-	EndTime       string       `xml:"endTime,attr"`
-	Href          string       `xml:"href,attr"`
-	Urn           string       `xml:"id,attr"`
-	Org           VdcReference `xml:"Organization"`
-	User          VdcReference `xml:"User"`
-	Owner         VdcReference `xml:"Owner"`
-	Error         TaskError    `xml:"Error,omitempty"`
-	VcTaskList    VcTaskList   `xml:"VcTaskList,omitempty"`
+	Operation     string        `xml:"operation,attr"`
+	OperationName string        `xml:"operationName,attr"`
+	Status        string        `xml:"status,attr"`
+	StartTime     string        `xml:"startTime,attr"`
+	EndTime       string        `xml:"endTime,attr"`
+	Href          string        `xml:"href,attr"`
+	Urn           string        `xml:"id,attr"`
+	Org           Reference     `xml:"Organization"`
+	User          Reference     `xml:"User"`
+	Owner         Reference     `xml:"Owner"`
+	Error         *TaskError    `xml:"Error,omitempty"`
+	VcTaskList    *VcTaskList   `xml:"VcTaskList,omitempty"`
 }
 
 type TaskError struct {

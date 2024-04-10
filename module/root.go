@@ -25,6 +25,7 @@ func GetCmdRoot() *cobra.Command {
 		NewCmdConfig(),
 		NewCmdApi(),
 		NewCmdCreate(),
+		NewCmdSet(),
 	)
 	cmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", defaultConfigFilePath(), "path to vcdctl config file")
 	cmd.PersistentFlags().BoolVar(&isDebugMode, "debug", false, "for debug")

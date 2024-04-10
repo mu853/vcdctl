@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -36,6 +37,9 @@ func NewCmdGet() *cobra.Command {
 		NewCmdGetOrg(),
 		NewCmdGetOrgVdc(),
 		NewCmdGetOrgVdcNetwork(),
+		NewCmdGetEdge(),
+		NewCmdGetEdgeNetwork(),
+		NewCmdGetProviderGateway(),
 		NewCmdGetVApp(),
 		NewCmdGetVAppNetwork(),
 		NewCmdGetVAppVm(),
@@ -99,28 +103,22 @@ func NewCmdGetOrgVdcNetwork() *cobra.Command {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
 			initClient()
-			orgVdcs := GetOrgVdcs()
-			vdcNames := []string{}
-			for _, vdc := range orgVdcs {
-				vdcNames = append(vdcNames, vdc.Name)
-			}
-
-			return vdcNames, cobra.ShellCompDirectiveNoFileComp
+			return GetOvdcNames(), cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			vcdName := args[0]
-			orgVdc, err := GetVdc(vcdName)
+			vdcName := args[0]
+			orgVdc, err := GetVdc(vdcName)
 			if err != nil {
 				Fatal(err)
 			}
 			var data [][]string
-			for _, nw := range GetOrgVdcNetwork(orgVdc.Id) {
+			for _, nw := range GetOrgVdcNetworks(orgVdc.Id) {
 				ipScope := nw.Configuration.IpScopes.IpScope[0]
 				data = append(data, []string{
 					nw.Name,
 					nw.Id,
 					orgVdc.OrgName,
-					vcdName,
+					vdcName,
 					ipScope.Gateway + "/" + ipScope.SubnetPrefixLength,
 					ipScope.Dns1,
 					ipScope.Dns2,
@@ -132,6 +130,116 @@ func NewCmdGetOrgVdcNetwork() *cobra.Command {
 			PrityPrint([]string{"Name", "Id", "Org", "Vdc", "DefaultGateway", "Dns1", "Dns2", "DnsSuffix", "FenceMode", "IsShared", "IsIpScopeInherited"}, data)
 		},
 	}
+	return cmd
+}
+
+func NewCmdGetProviderGateway() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "provider-gateway",
+		Short:   "Get Provider Gateway [gw]",
+		Aliases: []string{"gw"},
+		Run: func(cmd *cobra.Command, args []string) {
+			var data [][]string
+			for _, gw := range GetProviderGateways() {
+				subnet := gw.Subnets.Values[0]
+				ipRanges := []string{}
+				for _, ipr := range subnet.IpRanges.Values {
+					ipRanges = append(ipRanges, fmt.Sprintf("%s-%s", ipr.StartAddress, ipr.EndAddress))
+				}
+				data = append(data, []string{
+					gw.Name,
+					gw.Urn,
+					gw.NetworkBackings.Values[0].Name,
+					gw.NetworkBackings.Values[0].NetworkProvider.Name,
+					subnet.GatewayAddress,
+					strings.Join(ipRanges, ","),
+					})
+			}
+			PrityPrint([]string{"Name", "Id", "Tier0", "NetworkProvider", "Gateway", "IpRange"}, data)
+		},
+	}
+	return cmd
+}
+
+func NewCmdGetEdge() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "edge ${VDC_NAME}",
+		Short:   "Get Edge [e]",
+		Aliases: []string{"e"},
+		Args:    cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			initClient()
+			return GetOvdcNames(), cobra.ShellCompDirectiveNoFileComp
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			vdcName := args[0]
+			orgVdc, err := GetVdc(vdcName)
+			if err != nil {
+				Fatal(err)
+			}
+			var data [][]string
+			for _, edge := range GetEdges(vdcName) {
+				data = append(data, []string{
+					edge.Name,
+					edge.Urn,
+					orgVdc.OrgName,
+					vdcName,
+					edge.OwnerRef.Name,
+					edge.GatewayBacking.NetworkProvider.Name,
+					edge.EdgeClusterConfig.PrimaryEdgeCluster.EdgeClusterRef.Name,
+					strconv.Itoa(len(edge.EdgeGatewayUplinks)),
+					})
+			}
+			PrityPrint([]string{"Name", "Id", "Org", "Vdc", "Owner", "NetworkProvider", "EdgeCluster", "IfCount"}, data)
+		},
+	}
+	return cmd
+}
+
+func NewCmdGetEdgeNetwork() *cobra.Command {
+	var orgvdcName string
+	var edgeName string	
+	cmd := &cobra.Command{
+		Use:     "edge-network",
+		Short:   "Get EdgeNetwork [en]",
+		Aliases: []string{"en"},
+		Run: func(cmd *cobra.Command, args []string) {
+			edge, err := GetEdge(edgeName, orgvdcName)
+			if err != nil {
+				Fatal(err)
+			}
+
+			var data [][]string
+			for _, uplink := range edge.EdgeGatewayUplinks {
+				subnet := uplink.Subnets.Values[0]
+				data = append(data, []string{
+					uplink.UplinkName,
+					uplink.UplinkId,
+					uplink.BackingType,
+					strconv.FormatBool(uplink.Dedicated),
+					strconv.FormatBool(uplink.Connected),
+					strconv.FormatBool(uplink.VrfLiteBacked),
+					subnet.PrimaryIp,
+					fmt.Sprintf("%s/%d", subnet.GatewayAddress, subnet.PrefixLength),
+					})
+			}
+			PrityPrint([]string{"Name", "Id", "BackingType", "Dedicated", "Connected", "Vrf", "PrimaryIp", "GatewayAddress"}, data)
+		},
+	}
+	cmd.PersistentFlags().StringVarP(&orgvdcName, "orgvdc", "v", "", "org vdc name")
+	cmd.PersistentFlags().StringVarP(&edgeName, "edge", "e", "", "edge name")
+
+	cmd.RegisterFlagCompletionFunc("orgvdc", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		initClient()
+		return GetOvdcNames(), cobra.ShellCompDirectiveNoFileComp
+	})
+	cmd.RegisterFlagCompletionFunc("edge", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		initClient()
+		return GetEdgeNames(orgvdcName), cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }
 
@@ -171,13 +279,7 @@ func NewCmdGetVAppNetwork() *cobra.Command {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
 			initClient()
-			vapps := GetVApps()
-			vappNames := []string{}
-			for _, vapp := range vapps {
-				vappNames = append(vappNames, vapp.Name)
-			}
-
-			return vappNames, cobra.ShellCompDirectiveNoFileComp
+			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			vapp, err := GetVAppByName(args[0])
@@ -188,7 +290,7 @@ func NewCmdGetVAppNetwork() *cobra.Command {
 			if err != nil {
 				Fatal(err)
 			}
-			vdcNetworks := GetOrgVdcNetwork(orgVdc.Id)
+			vdcNetworks := GetOrgVdcNetworks(orgVdc.Id)
 
 			var data [][]string
 			for _, nw := range GetVAppNetwork(vapp.Id) {
@@ -225,13 +327,7 @@ func NewCmdGetVAppVm() *cobra.Command {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
 			initClient()
-			vapps := GetVApps()
-			vappNames := []string{}
-			for _, vapp := range vapps {
-				vappNames = append(vappNames, vapp.Name)
-			}
-
-			return vappNames, cobra.ShellCompDirectiveNoFileComp
+			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			vapp, err := GetVAppByName(args[0])
@@ -263,13 +359,7 @@ func NewCmdGetVAppVmNetwork() *cobra.Command {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
 			initClient()
-			vapps := GetVApps()
-			vappNames := []string{}
-			for _, vapp := range vapps {
-				vappNames = append(vappNames, vapp.Name)
-			}
-
-			return vappNames, cobra.ShellCompDirectiveNoFileComp
+			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			vapp, err := GetVAppByName(args[0])
@@ -330,10 +420,11 @@ func NewCmdGetTask() *cobra.Command {
 			if len(args) > 0 {
 				orgName = args[0]
 			}
-			if orgName != "" {
-				org := GetOrg(orgName)
-				orgId = org.Id
+			if orgName == "" {
+				Fatal("org name not specified")
 			}
+			org := GetOrg(orgName)
+			orgId = org.Id
 
 			if latest {
 				task := GetTasks(orgId)[0]
@@ -371,7 +462,7 @@ func NewCmdGetTask() *cobra.Command {
 				fmt.Println("Time: " + task.StartTime + " - " + task.EndTime)
 				fmt.Println("Object: " + task.Owner.Name + " (" + task.Owner.Href + ")")
 				fmt.Println("User: " + task.User.Name)
-				if task.Error.TenantError.Message != "" {
+				if task.Error != nil {
 					fmt.Println("Error: " + task.Error.TenantError.Message)
 					fmt.Println("ErrorCode: " + task.Error.TenantError.MajorErrorCode + " - " + task.Error.TenantError.MinorErrorCode)
 					fmt.Println("Trace: " + task.Error.StackTrace)
@@ -452,7 +543,7 @@ func GetOrgVdcs() []OrgVdc {
 	return vdcs
 }
 
-func GetOrgVdcNetwork(vdcId string) []OrgVdcNetwork {
+func GetOrgVdcNetworks(vdcId string) []OrgVdcNetwork {
 	res := client.Request("GET", "/api/admin/vdc/"+vdcId, nil, nil)
 
 	var adminVdc AdminVdc
@@ -480,6 +571,27 @@ func GetOrgVdcNetwork(vdcId string) []OrgVdcNetwork {
 	})
 
 	return orgVdcNetworkList
+}
+
+func GetOrgVdcNetwork(name string, vdcId string) (OrgVdcNetworkJson, error) {
+	api := fmt.Sprintf("/cloudapi/1.0.0/orgVdcNetworks?filter=(name==%s;orgVdc.id==urn:vcloud:vdc:%s)", name, vdcId)
+	res := client.Request("GET", api, nil, nil)
+
+	result := struct {
+		Values []OrgVdcNetworkJson `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+	if len(result.Values) == 0 {
+		return OrgVdcNetworkJson{}, fmt.Errorf("orgvds network [%s] not found", name)
+	}
+	if len(result.Values) != 1 {
+		Fatal(fmt.Sprintf("result count is %d, expected is 1", len(result.Values)))
+	}
+
+	return result.Values[0], nil
 }
 
 func GetVApps() []VApp {
@@ -641,8 +753,8 @@ func GetVAppVm(vappId string) []VM {
 	return vms
 }
 
-func GetProviderVdc(name string) VdcReference {
-	res := client.Request("GET", fmt.Sprintf("/api/admin/extension/providerVdcReferences/query?filter=(name==%s)", name), nil, nil)
+func GetProviderVdc(name string) (Reference, error) {
+	res := client.Request("GET", fmt.Sprintf("/api/admin/extension/providerVdcReferences/query?filter=(name==%s)&sortAsc=name", name), nil, nil)
 
 	result := struct {
 		VMWProviderVdcRecord struct {
@@ -652,17 +764,17 @@ func GetProviderVdc(name string) VdcReference {
 	}{}
 	err := xml.Unmarshal(res.Body, &result)
 	if err != nil {
-		Fatal(err)
+		return Reference{}, err
 	}
 
-	return VdcReference {
+	return Reference {
 		Name: result.VMWProviderVdcRecord.Name,
 		Href: result.VMWProviderVdcRecord.Href,
 		Id: fmt.Sprintf("urn:vcloud:providervdc:%s", LastOne(result.VMWProviderVdcRecord.Href, "/")),
-	}
+	}, nil
 }
 
-func GetNetworkPool(name string) VdcReference {
+func GetNetworkPool(name string) (Reference, error) {
 	res := client.Request("GET", fmt.Sprintf("/api/admin/extension/networkPoolReferences/query?filter=(name==%s)", name), nil, nil)
 
 	result := struct {
@@ -673,17 +785,17 @@ func GetNetworkPool(name string) VdcReference {
 	}{}
 	err := xml.Unmarshal(res.Body, &result)
 	if err != nil {
-		Fatal(err)
+		return Reference{}, err
 	}
 
-	return VdcReference {
+	return Reference {
 		Name: result.NetworkPoolRecord.Name,
 		Href: result.NetworkPoolRecord.Href,
 		Id: fmt.Sprintf("urn:vcloud:networkpool:%s", LastOne(result.NetworkPoolRecord.Href, "/")),
-	}
+	}, nil
 }
 
-func GetStorageProfile(name string, providerVdcName string) VdcReference {
+func GetStorageProfile(name string, providerVdcName string) (Reference, error) {
 	api := fmt.Sprintf("/cloudapi/1.0.0/pvdcStoragePolicies?filter=(name==%s;providerVdcRef.name==%s)", name, providerVdcName)
 	res := client.Request("GET", api, nil, nil)
 
@@ -697,51 +809,144 @@ func GetStorageProfile(name string, providerVdcName string) VdcReference {
 	if err != nil {
 		Fatal(err)
 	}
+	if len(result.Values) == 0 {
+		return Reference{}, fmt.Errorf("storage profile [%s] not found at %s", name, providerVdcName)
+	}
+	if len(result.Values) != 1 {
+		Fatal(fmt.Sprintf("result count is %d, expected is 1", len(result.Values)))
+	}
 
-	return VdcReference {
+	return Reference {
 		Name: result.Values[0].Name,
 		Id: result.Values[0].Urn,
-	}
+	}, nil
 }
 
-func GetEdge(name string, orgvdcName string) VdcReference {
+func GetEdge(name string, orgvdcName string) (EdgeGateway, error) {
 	api := fmt.Sprintf("/cloudapi/1.0.0/edgeGateways?filter=(name==%s;orgVdc.name==%s)", name, orgvdcName)
 	res := client.Request("GET", api, nil, nil)
 
 	result := struct {
-		Values []struct {
-			Urn  string `json:"id"`
-			Name string `json:"name"`
-		} `json:"values"`
+		Values []EdgeGateway `json:"values"`
 	}{}
 	err := json.Unmarshal(res.Body, &result)
 	if err != nil {
 		Fatal(err)
 	}
-
-	return VdcReference {
-		Name: result.Values[0].Name,
-		Id: result.Values[0].Urn,
+	if len(result.Values) == 0 {
+		return EdgeGateway{}, fmt.Errorf("edge %s not found at %s", name, orgvdcName)
 	}
+	if len(result.Values) != 1 {
+		Fatal(fmt.Sprintf("result count is [%d], expected is 1", len(result.Values)))
+	}
+
+	return result.Values[0], nil
 }
 
-func GetExternalNetwork(name string) VdcReference {
+func GetEdges(orgvdcName string) []EdgeGateway {
+	api := fmt.Sprintf("/cloudapi/1.0.0/edgeGateways?filter=(orgVdc.name==%s)&sortAsc=name", orgvdcName)
+	res := client.Request("GET", api, nil, nil)
+
+	result := struct {
+		Values []EdgeGateway `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+	return result.Values
+}
+
+func GetExternalNetwork(name string) (ReferenceJson, error) {
 	api := fmt.Sprintf("/cloudapi/1.0.0/externalNetworks?filter=(name==%s)", name)
 	res := client.Request("GET", api, nil, nil)
 
 	result := struct {
-		Values []struct {
-			Urn  string `json:"id"`
-			Name string `json:"name"`
-		} `json:"values"`
+		Values []ReferenceJson `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+	if len(result.Values) == 0 {
+		return ReferenceJson{}, fmt.Errorf("external network %s not found", name)
+	}
+	if len(result.Values) != 1 {
+		Fatal(fmt.Sprintf("result count is [%d], expected is 1", len(result.Values)))
+	}
+
+	return result.Values[0], nil
+}
+
+func GetExternalNetworks() []ReferenceJson {
+	res := client.Request("GET", "/cloudapi/1.0.0/externalNetworks", nil, nil)
+
+	result := struct {
+		Values []ReferenceJson `json:"values"`
 	}{}
 	err := json.Unmarshal(res.Body, &result)
 	if err != nil {
 		Fatal(err)
 	}
 
-	return VdcReference {
-		Name: result.Values[0].Name,
-		Id: result.Values[0].Urn,
+	return result.Values
+}
+
+func GetProviderGateway(name string) (ProviderGateway, error) {
+	api := fmt.Sprintf("/cloudapi/1.0.0/externalNetworks?filter=(networkBackings.values.backingTypeValue==NSXT_TIER0;name==%s)", name)
+	res := client.Request("GET", api, nil, nil)
+
+	result := struct {
+		Values []ProviderGateway `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
 	}
+	if len(result.Values) == 0 {
+		return ProviderGateway{}, fmt.Errorf("provider gateway [%s] not found", name)
+	}
+	if len(result.Values) != 1 {
+		Fatal(fmt.Sprintf("result count is %d, expected is 1", len(result.Values)))
+	}
+
+	return result.Values[0], nil
+}
+
+func GetProviderGateways() []ProviderGateway {
+	api := "/cloudapi/1.0.0/externalNetworks?filter=(networkBackings.values.backingTypeValue==NSXT_TIER0)&sortAsc=name"
+	res := client.Request("GET", api, nil, nil)
+
+	result := struct {
+		Values []ProviderGateway `json:"values"`
+	}{}
+	err := json.Unmarshal(res.Body, &result)
+	if err != nil {
+		Fatal(err)
+	}
+	return result.Values
+}
+
+func GetOvdcNames() []string {
+	orgvdcNames := []string{}
+	for _, vdc := range GetOrgVdcs() {
+		orgvdcNames = append(orgvdcNames, vdc.Name)
+	}
+	return orgvdcNames
+}
+
+func GetEdgeNames(orgvdcName string) []string {
+	edgeNames := []string{}
+	for _, edge := range GetEdges(orgvdcName) {
+		edgeNames = append(edgeNames, edge.Name)
+	}
+	return edgeNames
+}
+
+func GetVAppNames() []string {
+	vappNames := []string{}
+	for _, vapp := range GetVApps() {
+		vappNames = append(vappNames, vapp.Name)
+	}
+	return vappNames
 }
