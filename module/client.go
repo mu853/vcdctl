@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -51,7 +52,12 @@ type Response struct {
 
 func (c *VcdClient) Login() error {
 	header := map[string]string{"Authorization": "Basic " + c.site.GetCredential()}
-	res := c.Request("POST", "/cloudapi/1.0.0/sessions/provider", header, nil)
+	org := strings.Split(c.site.User, "@")[1]
+	login_url := "/cloudapi/1.0.0/sessions"
+	if org == "system" {
+		login_url = "/cloudapi/1.0.0/sessions/provider"
+	}
+	res := c.Request("POST", login_url, header, nil)
 	if token, ok := res.Header["X-Vmware-Vcloud-Access-Token"]; ok {
 		c.token = token[0]
 	} else {
@@ -68,7 +74,7 @@ func (c *VcdClient) Request(method string, path string, header map[string]string
 	}
 
 	// Add headers
-	req.Header.Set("Accept", "application/*;version=37.1")
+	req.Header.Set("Accept", "application/*;version=" + c.site.ApiVersion)
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}

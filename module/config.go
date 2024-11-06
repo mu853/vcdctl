@@ -137,11 +137,12 @@ type Config struct {
 }
 
 type Site struct {
-	Name     string `json:"name"`
-	Endpoint string `json:"endpoint"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	OrgName  string `json:"orgname"`
+	Name       string `json:"name"`
+	Endpoint   string `json:"endpoint"`
+	User       string `json:"user"`
+	Password   string `json:"password"`
+	OrgName    string `json:"orgname"`
+	ApiVersion string `json:"apiversion"`
 }
 
 func (c *Config) GetCurrentSite() (Site, error) {

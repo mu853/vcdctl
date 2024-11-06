@@ -28,3 +28,10 @@ func Fatal(v ...any) {
 	fmt.Printf("error: %v\n", v...)
 	os.Exit(1)
 }
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

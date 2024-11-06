@@ -83,7 +83,7 @@ type VAppList struct {
 	Page     int    `xml:"page,attr"`
 	PageSize int    `xml:"pageSize,attr"`
 	Total    int    `xml:"total,attr"`
-	VApp     []VApp `xml:"AdminVAppRecord"`
+	VApp     []VApp `xml:"VAppRecord"`
 }
 
 type VApp struct {

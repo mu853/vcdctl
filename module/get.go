@@ -252,7 +252,7 @@ func NewCmdGetVApp() *cobra.Command {
 			var data [][]string
 			for _, vapp := range GetVApps() {
 				data = append(data, []string{
-					vapp.Name,
+					vapp.Name[:min(len(vapp.Name), 30)],
 					vapp.Id,
 					vapp.IsEnabled,
 					vapp.Status,
@@ -598,7 +598,7 @@ func GetVApps() []VApp {
 	vapps := []VApp{}
 	page := 1
 	for {
-		res := client.Request("GET", fmt.Sprintf("/api/admin/extension/vapps/query?page=%d", page), nil, nil)
+		res := client.Request("GET", fmt.Sprintf("/api/vApps/query?page=%d", page), nil, nil)
 		var vappList VAppList
 		if err := xml.Unmarshal(res.Body, &vappList); err != nil {
 			Fatal(err)
