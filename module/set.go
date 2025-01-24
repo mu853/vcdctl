@@ -18,6 +18,7 @@ func NewCmdSet() *cobra.Command {
 	}
 	cmd.AddCommand(
 		NewCmdSetOrgVdcNetwork(),
+		NewCmdSetPower(),
 	)
 	return cmd
 }
@@ -93,5 +94,48 @@ func NewCmdSetOrgVdcNetwork() *cobra.Command {
 		initClient()
 		return GetEdgeNames(orgvdcName), cobra.ShellCompDirectiveNoFileComp
 	})
+	return cmd
+}
+
+func NewCmdSetPower() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "power",
+		Short: "set vapp power",
+		Args:  cobra.MaximumNArgs(1),
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			initClient()
+		},
+	}
+	cmd.AddCommand(
+		NewCmdSetPowerOn(),
+	)
+	return cmd
+}
+
+func NewCmdSetPowerOn() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "on ${VAPP_NAME}",
+		Short:   "Power On vApp",
+		Args:    cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			initClient()
+			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) == 0 {
+				cmd.Help()
+				return
+			}
+			vappName := args[0]
+			vapp, err := GetVAppByName(vappName)
+			if err != nil {
+				Fatal(err)
+			}
+			client.Request("POST", fmt.Sprintf("/api/vApp/%s/power/action/powerOn", vapp.Id), nil, nil)
+		},
+	}
 	return cmd
 }
