@@ -2,6 +2,7 @@ package module
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -19,6 +20,7 @@ func NewCmdSet() *cobra.Command {
 	cmd.AddCommand(
 		NewCmdSetOrgVdcNetwork(),
 		NewCmdSetPower(),
+		NewCmdSetVAppLease(),
 	)
 	return cmd
 }
@@ -114,7 +116,7 @@ func NewCmdSetPower() *cobra.Command {
 
 func NewCmdSetPowerOn() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "on ${VAPP_NAME}",
+		Use:     "on ${vApp Name or ID}",
 		Short:   "Power On vApp",
 		Args:    cobra.ExactArgs(1),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -130,11 +132,46 @@ func NewCmdSetPowerOn() *cobra.Command {
 				return
 			}
 			vappName := args[0]
-			vapp, err := GetVAppByName(vappName)
+			vapp, err := GetVAppByNameOrId(vappName, true)
 			if err != nil {
 				Fatal(err)
 			}
 			client.Request("POST", fmt.Sprintf("/api/vApp/%s/power/action/powerOn", vapp.Id), nil, nil)
+		},
+	}
+	return cmd
+}
+
+func NewCmdSetVAppLease() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "lease ${vApp Name or ID}",
+		Short: "Extend vApp Deployment Lease",
+		Args:  cobra.ExactArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			initClient()
+			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) != 1 {
+				cmd.Help()
+				return
+			}
+			vapp, err := GetVAppByNameOrId(args[0], false)
+			if err != nil {
+				Fatal(err)
+			}
+			vappLease := GetVAppLease(vapp.Id)
+			vappLease.DeploymentLeaseExpiration = ""
+			data, err := xml.Marshal(vappLease)
+			Log(string(data))
+			if err != nil {
+				Fatal(err)
+			}
+			header := map[string]string{"Content-Type": "application/vnd.vmware.vcloud.leaseSettingsSection+xml"}
+			client.Request("PUT", fmt.Sprintf("/api/vApp/%s/leaseSettingsSection", vapp.Id), header, data)
 		},
 	}
 	return cmd

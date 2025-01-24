@@ -250,19 +250,49 @@ func NewCmdGetVApp() *cobra.Command {
 		Use:     "vapp",
 		Aliases: []string{"a"},
 		Short:   "Get VApp [a]",
+		Args:    cobra.MaximumNArgs(1),
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			if len(args) != 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			initClient()
+			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
+		},
 		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) > 0 {
+				vappName := args[0]
+				vapp, err := GetVAppByNameOrId(vappName, true)
+				if err != nil {
+					Fatal(err)
+				}
+				fmt.Println()
+				fmt.Printf("Id: %s\n", vapp.Id)
+				fmt.Printf("vAppName: %s\n", vapp.Name)
+				//fmt.Printf("OrgName: %s\n", vapp.OrgName)
+				fmt.Printf("VdcName: %s\n", vapp.VdcName)
+				fmt.Printf("Status: %s\n", vapp.Status)
+				fmt.Printf("NumOfVms: %d\n", vapp.NumberOfVMs)
+				if vapp.Status != "POWERED_OFF" {
+					lease := GetVAppLease(vapp.Id)
+					exp, err := time.Parse("2006-01-02T15:04:05.000Z", lease.DeploymentLeaseExpiration)
+					if err != nil {
+						Log(err.Error())
+					}
+					fmt.Printf("Lease: %s (%.1fh left)\n", exp.Local().Format("01/02 15:04"), -time.Since(exp).Hours())
+				}
+				fmt.Printf("RecentTask: %s (%s)\n\n", vapp.TaskStatusName, vapp.TaskStatus)
+				return
+			}
 			var dataList [][]string
 			for _, vapp := range GetVApps() {
 				data := []string{
 					Truncate(vapp.Name, 42),
 					vapp.Id,
-					vapp.IsEnabled,
+					//vapp.IsEnabled,
 					vapp.Status,
-					vapp.OrgName,
+					//vapp.OrgName,
 					vapp.VdcName,
 					strconv.Itoa(vapp.NumberOfVMs),
-					vapp.TaskStatusName,
-					vapp.TaskStatus,
 				}
 				if showlease {
 					exp_str := ""
@@ -278,7 +308,8 @@ func NewCmdGetVApp() *cobra.Command {
 				}
 				dataList = append(dataList, data)
 			}
-			header := []string{"Name", "Id", "IsEnabled", "Status", "Org", "Vdc", "VMs", "TaskStatusName", "TaskStatus"}
+			//header := []string{"Name", "Id", "IsEnabled", "Status", "Org", "Vdc", "VMs"}
+			header := []string{"Name", "Id", "Status", "Vdc", "VMs"}
 			if showlease {
 				header = append(header, "LeaseExpiration")
 			}
@@ -303,7 +334,7 @@ func NewCmdGetVAppNetwork() *cobra.Command {
 			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			vapp, err := GetVAppByName(args[0])
+			vapp, err := GetVAppByNameOrId(args[0], false)
 			if err != nil {
 				Fatal(err)
 			}
@@ -351,7 +382,7 @@ func NewCmdGetVAppVm() *cobra.Command {
 			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			vapp, err := GetVAppByName(args[0])
+			vapp, err := GetVAppByNameOrId(args[0], false)
 			if err != nil {
 				Fatal(err)
 			}
@@ -383,7 +414,7 @@ func NewCmdGetVAppVmNetwork() *cobra.Command {
 			return GetVAppNames(), cobra.ShellCompDirectiveNoFileComp
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			vapp, err := GetVAppByName(args[0])
+			vapp, err := GetVAppByNameOrId(args[0], false)
 			if err != nil {
 				Fatal(err)
 			}
@@ -731,10 +762,16 @@ func GetVdc(vdcName string) (OrgVdc, error) {
 	return OrgVdc{}, fmt.Errorf("Org VDC \"" + vdcName + "\" not found")
 }
 
-func GetVAppByName(vappName string) (VApp, error) {
+func GetVAppByNameOrId(vappName string, partialSearch bool) (VApp, error) {
 	for _, vapp := range GetVApps() {
-		if vapp.Name == vappName {
-			return vapp, nil
+		if partialSearch {
+			if strings.Contains(vapp.Name, vappName) {
+				return vapp, nil
+			}
+		} else {
+			if vapp.Name == vappName || vapp.Id == vappName {
+				return vapp, nil
+			}
 		}
 	}
 	return VApp{}, fmt.Errorf("vApp \"%s\" not found", vappName)
