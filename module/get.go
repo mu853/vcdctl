@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -153,7 +154,7 @@ func NewCmdGetProviderGateway() *cobra.Command {
 					gw.NetworkBackings.Values[0].NetworkProvider.Name,
 					subnet.GatewayAddress,
 					strings.Join(ipRanges, ","),
-					})
+				})
 			}
 			PrityPrint([]string{"Name", "Id", "Tier0", "NetworkProvider", "Gateway", "IpRange"}, data)
 		},
@@ -191,7 +192,7 @@ func NewCmdGetEdge() *cobra.Command {
 					edge.GatewayBacking.NetworkProvider.Name,
 					edge.EdgeClusterConfig.PrimaryEdgeCluster.EdgeClusterRef.Name,
 					strconv.Itoa(len(edge.EdgeGatewayUplinks)),
-					})
+				})
 			}
 			PrityPrint([]string{"Name", "Id", "Org", "Vdc", "Owner", "NetworkProvider", "EdgeCluster", "IfCount"}, data)
 		},
@@ -201,7 +202,7 @@ func NewCmdGetEdge() *cobra.Command {
 
 func NewCmdGetEdgeNetwork() *cobra.Command {
 	var orgvdcName string
-	var edgeName string	
+	var edgeName string
 	cmd := &cobra.Command{
 		Use:     "edge-network",
 		Short:   "Get EdgeNetwork [en]",
@@ -224,7 +225,7 @@ func NewCmdGetEdgeNetwork() *cobra.Command {
 					strconv.FormatBool(uplink.VrfLiteBacked),
 					subnet.PrimaryIp,
 					fmt.Sprintf("%s/%d", subnet.GatewayAddress, subnet.PrefixLength),
-					})
+				})
 			}
 			PrityPrint([]string{"Name", "Id", "BackingType", "Dedicated", "Connected", "Vrf", "PrimaryIp", "GatewayAddress"}, data)
 		},
@@ -244,15 +245,16 @@ func NewCmdGetEdgeNetwork() *cobra.Command {
 }
 
 func NewCmdGetVApp() *cobra.Command {
+	var showlease bool
 	cmd := &cobra.Command{
 		Use:     "vapp",
 		Aliases: []string{"a"},
 		Short:   "Get VApp [a]",
 		Run: func(cmd *cobra.Command, args []string) {
-			var data [][]string
+			var dataList [][]string
 			for _, vapp := range GetVApps() {
-				data = append(data, []string{
-					vapp.Name[:min(len(vapp.Name), 30)],
+				data := []string{
+					Truncate(vapp.Name, 42),
 					vapp.Id,
 					vapp.IsEnabled,
 					vapp.Status,
@@ -260,11 +262,30 @@ func NewCmdGetVApp() *cobra.Command {
 					vapp.VdcName,
 					strconv.Itoa(vapp.NumberOfVMs),
 					vapp.TaskStatusName,
-					vapp.TaskStatus})
+					vapp.TaskStatus,
+				}
+				if showlease {
+					exp_str := ""
+					if vapp.Status != "POWERED_OFF" {
+						lease := GetVAppLease(vapp.Id)
+						exp, err := time.Parse("2006-01-02T15:04:05.000Z", lease.DeploymentLeaseExpiration)
+						if err != nil {
+							Log(err.Error())
+						}
+						exp_str = fmt.Sprintf("%s (%.1fh left)", exp.Local().Format("01/02 15:04"), -time.Since(exp).Hours())
+					}
+					data = append(data, exp_str)
+				}
+				dataList = append(dataList, data)
 			}
-			PrityPrint([]string{"Name", "Id", "IsEnabled", "Status", "Org", "Vdc", "VMs", "TaskStatusName", "TaskStatus"}, data)
+			header := []string{"Name", "Id", "IsEnabled", "Status", "Org", "Vdc", "VMs", "TaskStatusName", "TaskStatus"}
+			if showlease {
+				header = append(header, "LeaseExpiration")
+			}
+			PrityPrint(header, dataList)
 		},
 	}
+	cmd.PersistentFlags().BoolVarP(&showlease, "showlease", "l", false, "show lease info")
 	return cmd
 }
 
@@ -604,7 +625,7 @@ func GetVApps() []VApp {
 			Fatal(err)
 		}
 		vapps = append(vapps, vappList.VApp...)
-		if vappList.Total <= vappList.Page * vappList.PageSize {
+		if vappList.Total <= vappList.Page*vappList.PageSize {
 			break
 		}
 		page++
@@ -753,6 +774,18 @@ func GetVAppVm(vappId string) []VM {
 	return vms
 }
 
+func GetVAppLease(vappId string) LeaseSettingsSection {
+	res := client.Request("GET", fmt.Sprintf("/api/vApp/%s/leaseSettingsSection", vappId), nil, nil)
+
+	var vappLease LeaseSettingsSection
+	err := xml.Unmarshal(res.Body, &vappLease)
+	if err != nil {
+		Fatal(err)
+	}
+
+	return vappLease
+}
+
 func GetProviderVdc(name string) (Reference, error) {
 	res := client.Request("GET", fmt.Sprintf("/api/admin/extension/providerVdcReferences/query?filter=(name==%s)&sortAsc=name", name), nil, nil)
 
@@ -767,10 +800,10 @@ func GetProviderVdc(name string) (Reference, error) {
 		return Reference{}, err
 	}
 
-	return Reference {
+	return Reference{
 		Name: result.VMWProviderVdcRecord.Name,
 		Href: result.VMWProviderVdcRecord.Href,
-		Id: fmt.Sprintf("urn:vcloud:providervdc:%s", LastOne(result.VMWProviderVdcRecord.Href, "/")),
+		Id:   fmt.Sprintf("urn:vcloud:providervdc:%s", LastOne(result.VMWProviderVdcRecord.Href, "/")),
 	}, nil
 }
 
@@ -788,10 +821,10 @@ func GetNetworkPool(name string) (Reference, error) {
 		return Reference{}, err
 	}
 
-	return Reference {
+	return Reference{
 		Name: result.NetworkPoolRecord.Name,
 		Href: result.NetworkPoolRecord.Href,
-		Id: fmt.Sprintf("urn:vcloud:networkpool:%s", LastOne(result.NetworkPoolRecord.Href, "/")),
+		Id:   fmt.Sprintf("urn:vcloud:networkpool:%s", LastOne(result.NetworkPoolRecord.Href, "/")),
 	}, nil
 }
 
@@ -816,9 +849,9 @@ func GetStorageProfile(name string, providerVdcName string) (Reference, error) {
 		Fatal(fmt.Sprintf("result count is %d, expected is 1", len(result.Values)))
 	}
 
-	return Reference {
+	return Reference{
 		Name: result.Values[0].Name,
-		Id: result.Values[0].Urn,
+		Id:   result.Values[0].Urn,
 	}, nil
 }
 

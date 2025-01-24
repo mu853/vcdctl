@@ -11,7 +11,7 @@ func PrityPrint(header []string, value [][]string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 1, 3, ' ', 0)
 	w.Write([]byte(strings.Join(header, "\t") + "\n"))
 	for _, v := range value {
-		w.Write([]byte(strings.Join(v, "\t") + "\n"))
+		w.Write([]byte(strings.Join(v[:len(header)], "\t") + "\n"))
 	}
 	w.Flush()
 }
@@ -34,4 +34,14 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func Truncate(str string, length int) string {
+	return str[:min(length, len(str))]
+}
+
+func Log(message string) {
+	if isDebugMode {
+		fmt.Println(message)
+	}
 }

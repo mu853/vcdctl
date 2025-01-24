@@ -52,11 +52,11 @@ type ComputeCapacity struct {
 }
 
 type VdcStorageProfile struct {
-	Enabled                   bool         `xml:"Enabled"`
-	Units                     string       `xml:"Units"`
-	Limit                     int          `xml:"Limit"`
-	Default                   bool         `xml:"Default"`
-	ProviderVdcStorageProfile Reference    `xml:"ProviderVdcStorageProfile"`
+	Enabled                   bool      `xml:"Enabled"`
+	Units                     string    `xml:"Units"`
+	Limit                     int       `xml:"Limit"`
+	Default                   bool      `xml:"Default"`
+	ProviderVdcStorageProfile Reference `xml:"ProviderVdcStorageProfile"`
 }
 
 type ConnectionInfo struct {
@@ -66,13 +66,13 @@ type ConnectionInfo struct {
 }
 
 type Subnet struct {
-	Gateway         string   `json:"gateway"`
-	PrefixLength    int      `json:"prefixLength"`
-	DnsSuffix       string   `json:"dnsSuffix"`
-	DnsServer1      string   `json:"dnsServer1"`
-	DnsServer2      string   `json:"dnsServer2"`
-	IpRanges        *IpRange `json:"ipRanges,omitempty"`
-	Enabled         bool     `json:"enabled,omitempty"`
+	Gateway      string   `json:"gateway"`
+	PrefixLength int      `json:"prefixLength"`
+	DnsSuffix    string   `json:"dnsSuffix"`
+	DnsServer1   string   `json:"dnsServer1"`
+	DnsServer2   string   `json:"dnsServer2"`
+	IpRanges     *IpRange `json:"ipRanges,omitempty"`
+	Enabled      bool     `json:"enabled,omitempty"`
 }
 
 type Subnets struct {
@@ -143,13 +143,13 @@ type Network struct {
 }
 
 type NetworkConfiguration struct {
-	IpScopes             IpScopeList  `xml:"IpScopes"`
-	ParentNetwork        *Reference   `xml:"ParentNetwork,omitempty"`
-	FenceMode            string       `xml:"FenceMode"`
-	DistributedInterface string       `xml:"DistributedInterface,omitempty"`
-	ServiceInterface     string       `xml:"ServiceInterface,omitempty"`
-	GuestVlanAllowed     string       `xml:"GuestVlanAllowed,omitempty"`
-	Connected            string       `xml:"Connected,omitempty"`
+	IpScopes             IpScopeList `xml:"IpScopes"`
+	ParentNetwork        *Reference  `xml:"ParentNetwork,omitempty"`
+	FenceMode            string      `xml:"FenceMode"`
+	DistributedInterface string      `xml:"DistributedInterface,omitempty"`
+	ServiceInterface     string      `xml:"ServiceInterface,omitempty"`
+	GuestVlanAllowed     string      `xml:"GuestVlanAllowed,omitempty"`
+	Connected            string      `xml:"Connected,omitempty"`
 }
 
 type OrgVdcNetworkJson struct {
@@ -188,10 +188,10 @@ type IpScope struct {
 }
 
 type NetworkBacking struct {
-	Name            string           `json:"name"`
-	Id              string           `json:"backingId"`
-	BackingType     string           `json:"backingType"`
-	NetworkProvider ReferenceJson    `json:"networkProvider"`
+	Name            string        `json:"name"`
+	Id              string        `json:"backingId"`
+	BackingType     string        `json:"backingType"`
+	NetworkProvider ReferenceJson `json:"networkProvider"`
 }
 
 type NetworkBackings struct {
@@ -233,19 +233,19 @@ type EdgeGatewayUplink struct {
 }
 
 type EdgeGateway struct {
-	Urn                                      string               `json:"id,omitempty"`
-	Name                                     string               `json:"name"`
-	EdgeGatewayUplinks                       []EdgeGatewayUplink  `json:"edgeGatewayUplinks"`
-	DistributedRoutingEnabled                bool                 `json:"distributedRoutingEnabled"`
-	NonDistributedRoutingEnabled             bool                 `json:"nonDistributedRoutingEnabled"`
-	ServiceNetworkDefinition                 string               `json:"serviceNetworkDefinition"`
-	DistributedRouterUplinkNetworkDefinition string               `json:"distributedRouterUplinkNetworkDefinition"`
-	OrgVdcNetworkCount                       int                  `json:"orgVdcNetworkCount,omitempty"`
-	GatewayBacking                           *NetworkBacking      `json:"gatewayBacking,omitempty"`
-	EdgeClusterConfig                        *EdgeClusterConfig   `json:"edgeClusterConfig,omitempty"`
-	OwnerRef                                 ReferenceJson        `json:"ownerRef"`
-	OrgVdc                                   *ReferenceJson       `json:"orgVdc,omitempty"`
-	OrgRef                                   *ReferenceJson       `json:"orgRef,omitempty"`
+	Urn                                      string              `json:"id,omitempty"`
+	Name                                     string              `json:"name"`
+	EdgeGatewayUplinks                       []EdgeGatewayUplink `json:"edgeGatewayUplinks"`
+	DistributedRoutingEnabled                bool                `json:"distributedRoutingEnabled"`
+	NonDistributedRoutingEnabled             bool                `json:"nonDistributedRoutingEnabled"`
+	ServiceNetworkDefinition                 string              `json:"serviceNetworkDefinition"`
+	DistributedRouterUplinkNetworkDefinition string              `json:"distributedRouterUplinkNetworkDefinition"`
+	OrgVdcNetworkCount                       int                 `json:"orgVdcNetworkCount,omitempty"`
+	GatewayBacking                           *NetworkBacking     `json:"gatewayBacking,omitempty"`
+	EdgeClusterConfig                        *EdgeClusterConfig  `json:"edgeClusterConfig,omitempty"`
+	OwnerRef                                 ReferenceJson       `json:"ownerRef"`
+	OrgVdc                                   *ReferenceJson      `json:"orgVdc,omitempty"`
+	OrgRef                                   *ReferenceJson      `json:"orgRef,omitempty"`
 }
 
 type EdgeClusterConfig struct {
@@ -265,6 +265,27 @@ type IpRanges struct {
 type IpRange struct {
 	StartAddress string `json:"startAddress,omitempty"`
 	EndAddress   string `json:"endAddress,omitempty"`
+}
+
+type LeaseSettingsSection struct {
+	Xmlns                     string `xml:"xmlns,attr"`
+	XmlnsVmext                string `xml:"xmlns vmext,attr"`
+	XmlnsOvf                  string `xml:"xmlns ovf,attr"`
+	XmlnsVssd                 string `xml:"xmlns vssd,attr"`
+	XmlnsCommon               string `xml:"xmlns common,attr"`
+	XmlnsRasd                 string `xml:"xmlns rasd,attr"`
+	XmlnsVmw                  string `xml:"xmlns vmw,attr"`
+	XmlnsOvfenv               string `xml:"xmlns ovfenv,attr"`
+	XmlnsNs9                  string `xml:"xmlns ns9,attr"`
+	Href                      string `xml:"href,attr"`
+	Type                      string `xml:"type,attr"`
+	OvfRequired               bool   `xml:"ovf required,attr"`
+	OvfInfo                   string `xml:"ovf Info"`
+
+	DeploymentLeaseInSeconds  string `xml:"DeploymentLeaseInSeconds"`
+	StorageLeaseInSeconds     string `xml:"StorageLeaseInSeconds"`
+	DeploymentLeaseExpiration string `xml:"DeploymentLeaseExpiration,omitempty"`
+	StorageLeaseExpiration    string `xml:"StorageLeaseExpiration,omitempty"`
 }
 
 type VAppDetails struct {
@@ -304,18 +325,18 @@ type TaskList struct {
 }
 
 type Task struct {
-	Operation     string        `xml:"operation,attr"`
-	OperationName string        `xml:"operationName,attr"`
-	Status        string        `xml:"status,attr"`
-	StartTime     string        `xml:"startTime,attr"`
-	EndTime       string        `xml:"endTime,attr"`
-	Href          string        `xml:"href,attr"`
-	Urn           string        `xml:"id,attr"`
-	Org           Reference     `xml:"Organization"`
-	User          Reference     `xml:"User"`
-	Owner         Reference     `xml:"Owner"`
-	Error         *TaskError    `xml:"Error,omitempty"`
-	VcTaskList    *VcTaskList   `xml:"VcTaskList,omitempty"`
+	Operation     string      `xml:"operation,attr"`
+	OperationName string      `xml:"operationName,attr"`
+	Status        string      `xml:"status,attr"`
+	StartTime     string      `xml:"startTime,attr"`
+	EndTime       string      `xml:"endTime,attr"`
+	Href          string      `xml:"href,attr"`
+	Urn           string      `xml:"id,attr"`
+	Org           Reference   `xml:"Organization"`
+	User          Reference   `xml:"User"`
+	Owner         Reference   `xml:"Owner"`
+	Error         *TaskError  `xml:"Error,omitempty"`
+	VcTaskList    *VcTaskList `xml:"VcTaskList,omitempty"`
 }
 
 type TaskError struct {
