@@ -93,6 +93,9 @@ func (c *VcdClient) Request(method string, path string, header map[string]string
 
 	// Get response
 	res, err := c.httpClient.Do(req)
+	if isDebugMode {
+		fmt.Println(res)
+	}
 	if err != nil {
 		Fatal(err)
 	}

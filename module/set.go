@@ -164,14 +164,30 @@ func NewCmdSetVAppLease() *cobra.Command {
 				Fatal(err)
 			}
 			vappLease := GetVAppLease(vapp.Id)
-			vappLease.DeploymentLeaseExpiration = ""
-			data, err := xml.Marshal(vappLease)
+			newVappLease := LeaseSettingsSectionUpdate{
+				Xmlns:vappLease.Xmlns,
+				XmlnsVmext:vappLease.XmlnsVmext,
+				XmlnsOvf:vappLease.XmlnsOvf,
+				XmlnsVssd:vappLease.XmlnsVssd,
+				XmlnsCommon:vappLease.XmlnsCommon,
+				XmlnsRasd:vappLease.XmlnsRasd,
+				XmlnsVmw:vappLease.XmlnsVmw,
+				XmlnsOvfenv:vappLease.XmlnsOvfenv,
+				XmlnsNs9:vappLease.XmlnsNs9,
+				Href:vappLease.Href,
+				Type:vappLease.Type,
+				OvfRequired:vappLease.OvfRequired,
+				OvfInfo:vappLease.OvfInfo,
+				DeploymentLeaseInSeconds:"86400",
+				StorageLeaseInSeconds:vappLease.StorageLeaseInSeconds,
+			}
+			data, err := xml.Marshal(newVappLease)
 			Log(string(data))
 			if err != nil {
 				Fatal(err)
 			}
 			header := map[string]string{"Content-Type": "application/vnd.vmware.vcloud.leaseSettingsSection+xml"}
-			client.Request("PUT", fmt.Sprintf("/api/vApp/%s/leaseSettingsSection", vapp.Id), header, data)
+			client.Request("PUT", fmt.Sprintf("/api/vApp/%s/leaseSettingsSection/", vapp.Id), header, data)
 		},
 	}
 	return cmd

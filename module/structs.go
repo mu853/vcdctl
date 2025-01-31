@@ -1,5 +1,7 @@
 package module
 
+import "encoding/xml"
+
 type OrgList struct {
 	Org []Org `xml:"Org"`
 }
@@ -268,6 +270,7 @@ type IpRange struct {
 }
 
 type LeaseSettingsSection struct {
+	XMLName                   xml.Name `xml:"LeaseSettingsSection"`
 	Xmlns                     string `xml:"xmlns,attr"`
 	XmlnsVmext                string `xml:"xmlns vmext,attr"`
 	XmlnsOvf                  string `xml:"xmlns ovf,attr"`
@@ -281,6 +284,28 @@ type LeaseSettingsSection struct {
 	Type                      string `xml:"type,attr"`
 	OvfRequired               bool   `xml:"ovf required,attr"`
 	OvfInfo                   string `xml:"ovf Info"`
+
+	DeploymentLeaseInSeconds  string `xml:"DeploymentLeaseInSeconds"`
+	StorageLeaseInSeconds     string `xml:"StorageLeaseInSeconds"`
+	DeploymentLeaseExpiration string `xml:"DeploymentLeaseExpiration,omitempty"`
+	StorageLeaseExpiration    string `xml:"StorageLeaseExpiration,omitempty"`
+}
+
+type LeaseSettingsSectionUpdate struct {
+	XMLName                   xml.Name `xml:"LeaseSettingsSection"`
+	Xmlns                     string `xml:"xmlns,attr"`
+	XmlnsVmext                string `xml:"xmlns:vmext,attr"`
+	XmlnsOvf                  string `xml:"xmlns:ovf,attr"`
+	XmlnsVssd                 string `xml:"xmlns:vssd,attr"`
+	XmlnsCommon               string `xml:"xmlns:common,attr"`
+	XmlnsRasd                 string `xml:"xmlns:rasd,attr"`
+	XmlnsVmw                  string `xml:"xmlns:vmw,attr"`
+	XmlnsOvfenv               string `xml:"xmlns:ovfenv,attr"`
+	XmlnsNs9                  string `xml:"xmlns:ns9,attr"`
+	Href                      string `xml:"href,attr"`
+	Type                      string `xml:"type,attr"`
+	OvfRequired               bool   `xml:"ovf:required,attr"`
+	OvfInfo                   string `xml:"ovf:Info"`
 
 	DeploymentLeaseInSeconds  string `xml:"DeploymentLeaseInSeconds"`
 	StorageLeaseInSeconds     string `xml:"StorageLeaseInSeconds"`
