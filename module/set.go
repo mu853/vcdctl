@@ -143,6 +143,8 @@ func NewCmdSetPowerOn() *cobra.Command {
 }
 
 func NewCmdSetVAppLease() *cobra.Command {
+	var leaseTime string
+
 	cmd := &cobra.Command{
 		Use:   "lease ${vApp Name or ID}",
 		Short: "Extend vApp Deployment Lease",
@@ -178,7 +180,7 @@ func NewCmdSetVAppLease() *cobra.Command {
 				Type:vappLease.Type,
 				OvfRequired:vappLease.OvfRequired,
 				OvfInfo:vappLease.OvfInfo,
-				DeploymentLeaseInSeconds:"86400",
+				DeploymentLeaseInSeconds:leaseTime,
 				StorageLeaseInSeconds:vappLease.StorageLeaseInSeconds,
 			}
 			data, err := xml.Marshal(newVappLease)
@@ -190,5 +192,6 @@ func NewCmdSetVAppLease() *cobra.Command {
 			client.Request("PUT", fmt.Sprintf("/api/vApp/%s/leaseSettingsSection/", vapp.Id), header, data)
 		},
 	}
+	cmd.PersistentFlags().StringVarP(&leaseTime, "leasetime", "", "86400", "lease time to extend in second (default is 86400)")
 	return cmd
 }
